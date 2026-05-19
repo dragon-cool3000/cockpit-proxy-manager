@@ -24,10 +24,14 @@
 	"btn_test": "🧪 Test Connection",
 	"btn_apply": "💾 Apply Settings",
 	"btn_disable": "🔌 Disable Proxy",
+	"btn_resync": "↻ Resync from System",
 	"status_title": "Status",
 	"log_title": "Module Logs",
 	"type_http": "HTTP",
 	"type_https": "HTTPS",
 	"type_socks5": "SOCKS5",
-	"hint_refresh": "💡 After applying, refresh package lists in Software Updates / cockpit-apt."
+	"hint_refresh": "💡 After applying, refresh package lists in Software Updates / cockpit-apt.",
+	"drift_detected": "⚠️ External changes detected in system proxy files. UI updated.",
+	"resync_success": "System configuration synced successfully.",
+	"resync_no_change": "No external changes detected. Configuration is consistent."
 }
