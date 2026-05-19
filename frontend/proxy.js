@@ -173,4 +173,189 @@
 			addLog(`curl not installed. ${t("pkg_install_cmd", "curl")}`, "warning");
 		} else {
 			$("tCurl").disabled = false;
-			$("btnApplyCurl").
+			$("btnApplyCurl").disabled = false;
+			$("btnDisableCurl").disabled = false;
+			$("tCurl").checked = !!targets.curl;
+			updateAppCardStatus("curl", cfg.enabled && targets.curl ? "ok" : "disabled");
+		}
+
+		// System
+		$("tSys").checked = !!targets.system;
+		updateAppCardStatus("system", cfg.enabled && targets.system ? "ok" : "disabled");
+
+		// Monitoring
+		$("mEnabled").checked = !!cfg.monitor_enabled;
+		$("mInterval").value = cfg.monitor_interval || 60;
+
+		addLog("Configuration loaded.");
+	}
+
+	function load() {
+		const cockpitLang = (cockpit.language || "en").split("-")[0];
+		const supported = ["en", "ru"];
+		const lang = supported.includes(cockpitLang) ? cockpitLang : "en";
+
+		loadTranslations(lang).then(() => {
+			channel = cockpit.channel({ payload: "proxy-manager", command: "get-config" });
+			channel.addEventListener("message", (ev, data) => {
+				try {
+					populateUI(JSON.parse(data));
+				} catch (e) {
+					addLog(`Failed to parse config: ${e}`, "error");
+				}
+			});
+			channel.addEventListener("close", (ev, opts) => {
+				if (opts.problem) {
+					addLog(`Backend error: ${opts.problem}`, "error");
+				}
+			});
+		});
+	}
+
+	function collectGlobal() {
+		return {
+			enabled: $("pEnabled").checked,
+			type: $("pType").value,
+			host: $("pHost").value.trim(),
+			port: parseInt($("pPort").value) || ($("pType").value === "socks5" ? 1080 : 3128),
+			username: $("pUser").value.trim(),
+			password: $("pPass").value,
+			no_proxy: $("pNoProxy").value,
+			check_urls: checkUrls,
+			monitor_enabled: $("mEnabled").checked,
+			monitor_interval: parseInt($("mInterval").value) || 60
+		};
+	}
+
+	function collectTargets() {
+		return {
+			apt: $("tApt").checked,
+			packagekit: $("tPkg").checked && !$("tPkg").disabled,
+			curl: $("tCurl").checked && !$("tCurl").disabled,
+			system: $("tSys").checked
+		};
+	}
+
+	function sendCmd(cmd, payload, onSuccess, onError) {
+		addLog(`→ ${cmd}`, "info");
+		const ch = cockpit.channel({ payload: "proxy-manager", command: cmd, ...payload });
+		ch.addEventListener("message", (ev, data) => {
+			try {
+				const res = JSON.parse(data);
+				if (res.success) {
+					addLog(`← ${cmd}: ${res.message}`, "success");
+					if (onSuccess) onSuccess(res);
+				} else {
+					addLog(`← ${cmd} failed: ${res.message}`, "error");
+					if (onError) onError(res);
+				}
+			} catch (e) {
+				addLog(`Parse error: ${e}`, "error");
+			}
+		});
+		ch.addEventListener("close", (ev, opts) => {
+			if (opts.problem && !opts.success) {
+				addLog(`Channel closed: ${opts.problem}`, "error");
+				if (onError) onError({ message: opts.problem });
+			}
+		});
+	}
+
+	// Test connection
+	$("btnTest").onclick = () => {
+		const cfg = { ...collectGlobal(), targets: collectTargets() };
+		sendCmd("test-proxy", { config: cfg },
+			(res) => showStatus(t("test_success", res.message), "success"),
+			(res) => showStatus(t("test_failed", res.message), "danger")
+		);
+	};
+
+	// Apply to specific target
+	function applyToTarget(target) {
+		const globalCfg = collectGlobal();
+		const targets = { apt:false, packagekit:false, curl:false, system:false };
+		targets[target] = true;
+		const cfg = { ...globalCfg, targets };
+
+		sendCmd("apply-config", { config: cfg },
+			(res) => {
+				showStatus(t("apply_success", target), "success");
+				updateAppCardStatus(target, "ok");
+				// Перезагрузка конфигурации для обновления статуса
+				cockpit.channel({ payload: "proxy-manager", command: "get-config" })
+					.addEventListener("message", (ev, data) => populateUI(JSON.parse(data)));
+			},
+			(res) => showStatus(t("apply_failed", target, res.message), "danger")
+		);
+	}
+
+	$("btnApplyApt").onclick = () => applyToTarget("apt");
+	$("btnApplyPkg").onclick = () => applyToTarget("packagekit");
+	$("btnApplyCurl").onclick = () => applyToTarget("curl");
+	$("btnApplySys").onclick = () => applyToTarget("system");
+	$("btnApplyAll").onclick = () => {
+		const cfg = { ...collectGlobal(), targets: collectTargets() };
+		sendCmd("apply-config", { config: cfg },
+			(res) => {
+				showStatus(t("apply_success", "selected targets"), "success");
+				["apt","packagekit","curl","system"].forEach(t => {
+					if (collectTargets()[t]) updateAppCardStatus(t, "ok");
+				});
+			},
+			(res) => showStatus(res.message, "danger")
+		);
+	};
+
+	// Disable specific target
+	function disableTarget(target) {
+		sendCmd("disable-proxy", { target },
+			(res) => {
+				showStatus(t("disable_success", target), "success");
+				updateAppCardStatus(target, "disabled");
+			},
+			(res) => showStatus(res.message, "danger")
+		);
+	}
+
+	$("btnDisableApt").onclick = () => disableTarget("apt");
+	$("btnDisablePkg").onclick = () => disableTarget("packagekit");
+	$("btnDisableCurl").onclick = () => disableTarget("curl");
+	$("btnDisableSys").onclick = () => disableTarget("system");
+	$("btnDisableAll").onclick = () => {
+		sendCmd("disable-proxy", {},
+			(res) => {
+				showStatus("All proxies disabled", "success");
+				["apt","packagekit","curl","system"].forEach(t => updateAppCardStatus(t, "disabled"));
+			},
+			(res) => showStatus(res.message, "danger")
+		);
+	};
+
+	// Resync from system
+	$("btnResync").onclick = () => {
+		sendCmd("resync-config", {},
+			(res) => {
+				populateUI(res);
+				showStatus(res.drift_detected ? t("drift_detected") : t("resync_no_change"),
+					res.drift_detected ? "warning" : "success");
+			},
+			(res) => showStatus(res.message, "danger")
+		);
+	};
+
+	// Add URL
+	$("addUrlBtn").onclick = () => {
+		const val = $("newUrl").value.trim();
+		if (val && !checkUrls.includes(val)) {
+			checkUrls.push(val);
+			renderUrls();
+			$("newUrl").value = "";
+		}
+	};
+
+	// Init
+	cockpit.transport.wait(() => {
+		load();
+		addLog("Proxy Manager initialized.", "info");
+	});
+})();
