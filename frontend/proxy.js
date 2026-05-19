@@ -1,19 +1,28 @@
 /* global cockpit */
 (function(){
 	"use strict";
-	const E = id => document.getElementById(id);
+
+	const $ = id => document.getElementById(id);
+	const $$ = (sel, ctx=document) => ctx.querySelectorAll(sel);
+
 	let channel = null;
 	let checkUrls = [];
 	let translations = {};
 	let currentLang = "en";
+	let config = null;
 
+	// Безопасная локализация
 	function loadTranslations(lang) {
 		const path = `po/${lang}.json`;
 		return new Promise((resolve) => {
 			cockpit.file(path).read()
 				.done((content) => {
-					translations = JSON.parse(content);
-					currentLang = lang;
+					try {
+						translations = JSON.parse(content);
+						currentLang = lang;
+					} catch (e) {
+						console.warn("Failed to parse translations:", e);
+					}
 					applyTranslations();
 					resolve(true);
 				})
@@ -21,8 +30,7 @@
 					if (lang !== "en") {
 						cockpit.file("po/en.json").read()
 							.done((content) => {
-								translations = JSON.parse(content);
-								currentLang = "en";
+								try { translations = JSON.parse(content); currentLang = "en"; } catch(e) {}
 								applyTranslations();
 							})
 							.always(() => resolve(false));
@@ -33,140 +41,136 @@
 		});
 	}
 
-	function t(key) {
-		return translations[key] || key;
+	function t(key, ...args) {
+		const str = translations[key] || key;
+		return args.length ? str.replace(/%s/g, () => args.shift()) : str;
 	}
 
 	function applyTranslations() {
-		document.querySelectorAll("[data-i18n]").forEach(el => {
+		// Текстовые элементы
+		$$("[data-i18n]").forEach(el => {
 			const key = el.getAttribute("data-i18n");
-			if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
-				el.placeholder = t(key);
-			} else {
-				el.textContent = t(key);
+			if (key && translations[key]) {
+				el.textContent = translations[key];
 			}
 		});
-		document.querySelectorAll("[data-i18n-title]").forEach(el => {
-			el.title = t(el.getAttribute("data-i18n-title"));
+		// Заголовки (title атрибут)
+		$$("[data-i18n-title]").forEach(el => {
+			const key = el.getAttribute("data-i18n-title");
+			if (key && translations[key]) {
+				el.setAttribute("title", translations[key]);
+			}
 		});
-		document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
-			el.placeholder = t(el.getAttribute("data-i18n-placeholder"));
+		// Placeholder'ы
+		$$("[data-i18n-placeholder]").forEach(el => {
+			const key = el.getAttribute("data-i18n-placeholder");
+			if (key && translations[key]) {
+				el.setAttribute("placeholder", translations[key]);
+			}
 		});
 	}
 
 	function addLog(msg, type="info") {
-		const log = E("logArea");
+		const log = $("logArea");
 		const time = new Date().toLocaleTimeString();
-		const color = type==="error" ? "#f55" : "#0f0";
-		log.innerHTML += `<div style="color:${color}">[${time}] ${msg}</div>`;
+		const color = type==="error" ? "var(--pf-v5-global--danger-color--100)" :
+		              type==="warning" ? "var(--pf-v5-global--warning-color--100)" :
+		              "var(--pf-v5-global--success-color--100)";
+		const entry = document.createElement("div");
+		entry.style.color = color;
+		entry.textContent = `[${time}] ${msg}`;
+		log.appendChild(entry);
 		log.scrollTop = log.scrollHeight;
 	}
 
-	function show(msg, type="info"){
-		const b = E("statusBar"); b.style.display="block"; b.className=`pf-v5-c-alert pf-m-inline pf-m-${type}`;
-		E("statusText").textContent = msg;
+	function showStatus(msg, type="info") {
+		const bar = $("statusBar");
+		bar.style.display = "block";
+		bar.className = `pf-v5-c-alert pf-m-inline pf-m-${type}`;
+		$("statusText").textContent = msg;
 		addLog(msg, type);
-		if(type==="success") setTimeout(()=>b.style.display="none", 5000);
+		if (type === "success") {
+			setTimeout(() => { bar.style.display = "none"; }, 5000);
+		}
 	}
 
-	function renderUrls(){
-		const l = E("urlList"); l.innerHTML="";
-		checkUrls.forEach((u,i)=>{
-			const d = document.createElement("div"); d.className="url-item";
-			d.innerHTML = `<span>${u}</span><button class="pf-v5-c-button pf-m-link" data-i="${i}">✕</button>`;
-			d.querySelector("button").onclick = ()=>{ checkUrls.splice(i,1); renderUrls(); };
-			l.appendChild(d);
+	function renderUrls() {
+		const list = $("urlList");
+		list.innerHTML = "";
+		checkUrls.forEach((url, i) => {
+			const item = document.createElement("li");
+			item.className = "pf-v5-c-list__item";
+			item.innerHTML = `
+				<span class="pf-v5-u-font-size-sm">${url}</span>
+				<button type="button" class="pf-v5-c-button pf-m-plain pf-m-sm" data-idx="${i}" aria-label="Remove">✕</button>
+			`;
+			item.querySelector("button").onclick = () => {
+				checkUrls.splice(i, 1);
+				renderUrls();
+			};
+			list.appendChild(item);
 		});
 	}
 
-	function populateUI(c) {
-		E("pType").value = c.type || "http";
-		E("pEnabled").checked = !!c.enabled;
-		E("pHost").value = c.host || "";
-		E("pPort").value = c.port || 3128;
-		E("pUser").value = c.username || "";
-		E("pPass").value = c.password || "";
-		E("pNoProxy").value = c.no_proxy || "";
-		checkUrls = c.check_urls || []; renderUrls();
-		
-		const pkgs = c.packages || {};
-		if (!pkgs.packagekit) { E("tPkg").disabled = true; E("tPkg").parentElement.classList.add("disabled-row"); }
-		if (!pkgs.curl) { E("tCurl").disabled = true; E("tCurl").parentElement.classList.add("disabled-row"); }
-		
-		const missing = (!pkgs.packagekit || !pkgs.curl);
-		E("pkgWarning").style.display = missing ? "block" : "none";
-		if(missing) addLog("Some packages are not installed. Settings for them are disabled.", "error");
-		
-		E("tApt").checked = c.targets?.apt ?? true;
-		E("tPkg").checked = pkgs.packagekit ? (c.targets?.packagekit ?? true) : false;
-		E("tCurl").checked = pkgs.curl ? (c.targets?.curl ?? true) : false;
-		E("tSys").checked = c.targets?.system ?? true;
-		E("mEnabled").checked = !!c.monitor_enabled;
-		E("mInterval").value = c.monitor_interval || 60;
+	function updateAppCardStatus(app, status, msg) {
+		const card = $(`card-${app}`);
+		const badge = $(`status-${app}`);
+		if (!card || !badge) return;
+
+		const colors = { ok: "pf-m-green", failed: "pf-m-red", disabled: "pf-m-grey", missing: "pf-m-grey" };
+		const icons = { ok: "● OK", failed: "⚠ Failed", disabled: "○ Disabled", missing: "○ Not installed" };
+
+		badge.className = `pf-v5-c-label ${colors[status] || "pf-m-grey"}`;
+		badge.textContent = icons[status] || status;
+		if (msg) {
+			badge.setAttribute("title", msg);
+		}
 	}
 
-	function load(){
-		const cockpitLang = cockpit.language?.split("-")[0] || "en";
-		const supportedLangs = ["en", "ru"];
-		const lang = supportedLangs.includes(cockpitLang) ? cockpitLang : "en";
-		
-		loadTranslations(lang).then(() => {
-			channel = cockpit.channel({payload:"proxy-manager", command:"get-config"});
-			channel.addEventListener("message", (ev, data)=>{
-				populateUI(JSON.parse(data));
-				addLog("Configuration loaded.");
-			});
-			channel.close();
-		});
-	}
+	function populateUI(cfg) {
+		config = cfg;
+		$("pType").value = cfg.type || "http";
+		$("pEnabled").checked = !!cfg.enabled;
+		$("pHost").value = cfg.host || "";
+		$("pPort").value = cfg.port || (cfg.type === "socks5" ? 1080 : 3128);
+		$("pUser").value = cfg.username || "";
+		$("pPass").value = cfg.password || ""; // Пароль не сбрасываем при загрузке
+		$("pNoProxy").value = cfg.no_proxy || "127.0.0.1,localhost,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7,fe80::/10";
+		checkUrls = cfg.check_urls || [];
+		renderUrls();
 
-	function collect(){
-		return {
-			enabled: E("pEnabled").checked,
-			type: E("pType").value,
-			host: E("pHost").value.trim(),
-			port: parseInt(E("pPort").value),
-			username: E("pUser").value.trim(),
-			password: E("pPass").value,
-			no_proxy: E("pNoProxy").value,
-			check_urls: checkUrls,
-			monitor_enabled: E("mEnabled").checked,
-			monitor_interval: parseInt(E("mInterval").value) || 60,
-			targets: { apt: E("tApt").checked, packagekit: E("tPkg").checked, curl: E("tCurl").checked, system: E("tSys").checked }
-		};
-	}
+		// Обновление карточек приложений
+		const pkgs = cfg.packages || {};
+		const targets = cfg.targets || {};
 
-	function sendCmd(cmd, cfg){
-		addLog(`Sending command: ${cmd}...`, "info");
-		channel = cockpit.channel({payload:"proxy-manager", command:cmd, config:cfg});
-		channel.addEventListener("message", (ev, data)=>{
-			const r = JSON.parse(data);
-			show(r.message, r.success?"success":"danger");
-		});
-		channel.close();
-	}
+		// APT (всегда доступен)
+		$("tApt").checked = !!targets.apt;
+		updateAppCardStatus("apt", cfg.enabled && targets.apt ? "ok" : "disabled");
 
-	E("btnTest").onclick = ()=> sendCmd("test-proxy", collect());
-	E("btnApply").onclick = ()=> sendCmd("apply-config", collect());
-	E("btnDisable").onclick = ()=> sendCmd("disable-proxy", null);
-	E("btnResync").onclick = ()=> {
-		channel = cockpit.channel({payload:"proxy-manager", command:"resync-config"});
-		channel.addEventListener("message", (ev, data)=>{
-			const c = JSON.parse(data);
-			populateUI(c);
-			if (c.drift_detected) {
-				show(t("drift_detected"), "warning");
-			} else {
-				show(t("resync_no_change"), "info");
-			}
-		});
-		channel.close();
-	};
+		// PackageKit
+		if (!pkgs.packagekit) {
+			$("tPkg").disabled = true;
+			$("tPkg").checked = false;
+			$("btnApplyPkg").disabled = true;
+			$("btnDisablePkg").disabled = true;
+			updateAppCardStatus("packagekit", "missing", t("pkg_install_cmd", "packagekit"));
+			addLog(`PackageKit not installed. ${t("pkg_install_cmd", "packagekit")}`, "warning");
+		} else {
+			$("tPkg").disabled = false;
+			$("btnApplyPkg").disabled = false;
+			$("btnDisablePkg").disabled = false;
+			$("tPkg").checked = !!targets.packagekit;
+			updateAppCardStatus("packagekit", cfg.enabled && targets.packagekit ? "ok" : "disabled");
+		}
 
-	E("addUrlBtn").onclick = ()=>{
-		const v = E("newUrl").value.trim();
-		if(v && !checkUrls.includes(v)){ checkUrls.push(v); renderUrls(); E("newUrl").value=""; }
-	};
-
-	cockpit.transport.wait(()=>load());
-})();
+		// curl
+		if (!pkgs.curl) {
+			$("tCurl").disabled = true;
+			$("tCurl").checked = false;
+			$("btnApplyCurl").disabled = true;
+			$("btnDisableCurl").disabled = true;
+			updateAppCardStatus("curl", "missing", t("pkg_install_cmd", "curl"));
+			addLog(`curl not installed. ${t("pkg_install_cmd", "curl")}`, "warning");
+		} else {
+			$("tCurl").disabled = false;
+			$("btnApplyCurl").
