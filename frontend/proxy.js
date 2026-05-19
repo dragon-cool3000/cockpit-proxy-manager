@@ -7,7 +7,6 @@
 	let translations = {};
 	let currentLang = "en";
 
-	// Простая система локализации
 	function loadTranslations(lang) {
 		const path = `po/${lang}.json`;
 		return new Promise((resolve) => {
@@ -19,7 +18,6 @@
 					resolve(true);
 				})
 				.fail(() => {
-					// Fallback to English
 					if (lang !== "en") {
 						cockpit.file("po/en.json").read()
 							.done((content) => {
@@ -82,7 +80,6 @@
 	}
 
 	function load(){
-		// Определяем язык Cockpit
 		const cockpitLang = cockpit.language?.split("-")[0] || "en";
 		const supportedLangs = ["en", "ru"];
 		const lang = supportedLangs.includes(cockpitLang) ? cockpitLang : "en";
@@ -100,7 +97,6 @@
 				E("pNoProxy").value = c.no_proxy || "";
 				checkUrls = c.check_urls || []; renderUrls();
 				
-				// Проверка установленных пакетов
 				const pkgs = c.packages || {};
 				if (!pkgs.packagekit) { E("tPkg").disabled = true; E("tPkg").parentElement.classList.add("disabled-row"); }
 				if (!pkgs.curl) { E("tCurl").disabled = true; E("tCurl").parentElement.classList.add("disabled-row"); }
