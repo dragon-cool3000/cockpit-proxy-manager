@@ -2,12 +2,7 @@
 # -*- coding: utf-8 -*-
 """Continuous Proxy Monitor & Auto-Disable Daemon"""
 
-import sys
-import json
-import os
-import subprocess
-import time
-import urllib.parse
+import sys, json, os, subprocess, time, urllib.parse
 from pathlib import Path
 
 CONFIG_FILE = Path("/etc/cockpit/proxy-manager/config.json")
@@ -16,70 +11,73 @@ STATUS_FILE = Path("/var/run/cockpit-proxy-manager/status.json")
 def log(msg):
 	sys.stderr.write(f"[monitor] {msg}\n")
 
-def notify_user(msg):
+def notify(msg):
 	try:
 		subprocess.run([
 			"dbus-send", "--system", "--dest=org.freedesktop.Notifications",
 			"--type=method_call", "/org/freedesktop/Notifications",
 			"org.freedesktop.Notifications.Notify",
 			"string:cockpit-proxy", "uint32:0", "string:dialog-warning",
-			"string:Proxy Status", f"string:{msg}", "array:string:", "dict:string:variant:", "int32:30000"
-		], check=False)
+			"string:Proxy Monitor", f"string:{msg}",
+			"array:string:", "dict:string:variant:", "int32:10000"
+		], capture_output=True, check=False)
 	except Exception:
 		pass
 
 def run_check(cfg):
-	proxy_url = cfg["type"] + "://"
-	if cfg["username"]:
-		proxy_url += urllib.parse.quote(cfg["username"], safe="") + ":" + urllib.parse.quote(cfg["password"], safe="") + "@"
+	proxy_url = cfg.get("type", "http") + "://"
+	if cfg.get("username"):
+		proxy_url += urllib.parse.quote(cfg["username"], safe="") + ":" + urllib.parse.quote(cfg.get("password",""), safe="") + "@"
 	proxy_url += f"{cfg['host']}:{cfg['port']}"
-	
-	for url in cfg["check_urls"]:
+	for url in cfg.get("check_urls", []):
 		try:
-			res = subprocess.run(["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
-				"--proxy", proxy_url, "--max-time", "5", url], capture_output=True, text=True, timeout=7)
+			res = subprocess.run([
+				"curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
+				"--proxy", proxy_url, "--max-time", "5", url
+			], capture_output=True, text=True, timeout=7)
 			if res.returncode == 0 and res.stdout.strip() == "204":
 				return True
 		except Exception:
 			continue
 	return False
 
+def disable_target(target):
+	try:
+		subprocess.run(
+			["/usr/local/libexec/cockpit-proxy-manager"],
+			input=json.dumps({"command": "disable-proxy", "target": target}),
+			text=True, capture_output=True, check=False
+		)
+	except Exception as e:
+		log(f"Failed to disable {target}: {e}")
+
 def main():
 	STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
-	
-	def update_status(state, ok):
-		STATUS_FILE.write_text(json.dumps({
-			"state": state, "last_check": time.time(), "proxy_ok": ok
-		}, indent="\t"))
-	
-	update_status("running", True)
-	
+	def update(state, ok):
+		STATUS_FILE.write_text(json.dumps({"state": state, "last_check": time.time(), "proxy_ok": ok}, indent="\t"))
+	update("running", True)
+
 	while True:
 		try:
 			if not CONFIG_FILE.exists():
 				time.sleep(30)
 				continue
-			
 			cfg = json.loads(CONFIG_FILE.read_text())
 			if not cfg.get("monitor_enabled") or not cfg.get("enabled"):
 				time.sleep(cfg.get("monitor_interval", 60))
 				continue
-			
 			ok = run_check(cfg)
-			update_status("monitoring", ok)
-			
+			update("monitoring", ok)
 			if not ok:
-				log("Proxy check failed. Disabling proxy to prevent network lock.")
+				log("Connectivity check failed. Auto-disabling affected targets.")
+				for tgt in ["apt", "packagekit", "curl", "system"]:
+					if cfg.get("targets", {}).get(tgt):
+						disable_target(tgt)
+						notify(f"Proxy auto-disabled for {tgt}: check failed")
+						log(f"Disabled {tgt}")
 				cfg["enabled"] = False
 				CONFIG_FILE.write_text(json.dumps(cfg, indent="\t"))
 				os.chmod(str(CONFIG_FILE), 0o600)
-				
-				subprocess.run([
-					"/usr/local/libexec/cockpit-proxy-manager",
-				], input='{"command":"disable-proxy"}', text=True, capture_output=True)
-				
-				notify_user("Proxy auto-disabled: connectivity check failed.")
-			
 			time.sleep(cfg.get("monitor_interval", 60))
 		except KeyboardInterrupt:
 			sys.exit(0)
