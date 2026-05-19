@@ -1,10 +1,22 @@
-/* proxy.css — Modern PatternFly 5 compliant styles */
+/* proxy.css — PatternFly 5, dark theme compatible */
 
-/* Split-pane layout */
+/* Ensure proper height handling without global scrollbar */
+html, body {
+	height: 100%;
+	overflow: hidden;
+}
+
+.pf-v5-c-page__main {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+}
+
 #mainContainer {
 	display: flex;
 	flex-direction: column;
-	height: calc(100vh - 120px);
+	flex: 1;
+	min-height: 0; /* Allow flex children to shrink */
 	gap: 0;
 }
 
@@ -15,23 +27,42 @@
 	padding: 1rem;
 }
 
+/* Visible, draggable divider */
 #divider {
-	height: 8px;
-	background: var(--pf-v5-global--BorderColor--100);
+	height: 16px;
+	background: var(--pf-v5-global--BackgroundColor--200);
+	border-top: 2px solid var(--pf-v5-global--BorderColor--100);
+	border-bottom: 2px solid var(--pf-v5-global--BorderColor--100);
 	cursor: row-resize;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	user-select: none;
+	position: relative;
+	z-index: 10;
 }
 
+#divider::before,
 #divider::after {
-	content: "⋯";
-	color: var(--pf-v5-global--Color--200);
-	font-size: 0.75rem;
+	content: "";
+	position: absolute;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 40px;
+	height: 2px;
+	background: var(--pf-v5-global--Color--200);
+	border-radius: 1px;
 }
+
+#divider::before { top: 5px; }
+#divider::after { bottom: 5px; }
 
 #divider:hover {
+	background: var(--pf-v5-global--active-color--200);
+}
+
+#divider:hover::before,
+#divider:hover::after {
 	background: var(--pf-v5-global--active-color--100);
 }
 
@@ -40,21 +71,22 @@
 	min-height: 100px;
 	overflow-y: auto;
 	background: var(--pf-v5-global--BackgroundColor--200);
-	border-top: 1px solid var(--pf-v5-global--BorderColor--100);
 }
 
-/* Responsive grid for app cards */
+/* Responsive grid */
 .appGrid {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 	gap: 1rem;
 }
 
-/* Card improvements */
+/* Cards */
 .appCard {
 	height: 100%;
 	display: flex;
 	flex-direction: column;
+	background: var(--pf-v5-global--BackgroundColor--100);
+	border: 1px solid var(--pf-v5-global--BorderColor--100);
 }
 
 .appCard .pf-v5-c-card__body {
@@ -85,6 +117,15 @@
 	align-items: center;
 	padding: 0.25rem 0;
 	font-size: 0.875rem;
+	color: var(--pf-v5-global--Color--100);
+}
+
+.urlItem button {
+	color: var(--pf-v5-global--Color--200);
+}
+
+.urlItem button:hover {
+	color: var(--pf-v5-global--danger-color--100);
 }
 
 /* Log entries */
@@ -93,11 +134,13 @@
 	border-bottom: 1px solid var(--pf-v5-global--BorderColor--200);
 	font-family: var(--pf-v5-global--FontFamily--monospace);
 	font-size: 0.8rem;
+	color: var(--pf-v5-global--Color--100);
 }
 
 .logEntry.error { color: var(--pf-v5-global--danger-color--100); }
 .logEntry.success { color: var(--pf-v5-global--success-color--100); }
 .logEntry.warning { color: var(--pf-v5-global--warning-color--100); }
+.logEntry.info { color: var(--pf-v5-global--Color--200); }
 
 /* Status badges */
 .statusBadge {
@@ -107,7 +150,7 @@
 	font-size: 0.75rem;
 }
 
-/* Disabled state */
+/* Disabled overlay */
 .disabled-overlay {
 	opacity: 0.6;
 	pointer-events: none;
@@ -118,7 +161,8 @@
 	content: "";
 	position: absolute;
 	inset: 0;
-	background: rgba(0,0,0,0.05);
+	background: var(--pf-v5-global--BackgroundColor--200);
+	opacity: 0.3;
 }
 
 /* Helper text */
@@ -127,7 +171,7 @@
 	color: var(--pf-v5-global--Color--200);
 }
 
-/* Toolbar buttons */
+/* Toolbar */
 .toolbar {
 	display: flex;
 	flex-wrap: wrap;
@@ -135,6 +179,38 @@
 	padding: 0.5rem 0;
 }
 
-/* Ensure no inline styles needed */
-.pf-v5-c-card { margin-bottom: 0; }
-.pf-v5-c-form { row-gap: 0.5rem; }
+/* Ensure no hardcoded colors — all use CSS variables for dark theme */
+.pf-v5-c-card {
+	background: var(--pf-v5-global--BackgroundColor--100);
+	border-color: var(--pf-v5-global--BorderColor--100);
+}
+
+.pf-v5-c-form-control {
+	background: var(--pf-v5-global--BackgroundColor--100);
+	color: var(--pf-v5-global--Color--100);
+	border-color: var(--pf-v5-global--BorderColor--200);
+}
+
+.pf-v5-c-form-control:focus {
+	border-color: var(--pf-v5-global--primary-color--100);
+	box-shadow: 0 0 0 2px var(--pf-v5-global--primary-color--200);
+}
+
+/* Scrollbars — themed */
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--pf-v5-global--BackgroundColor--200);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--pf-v5-global--BorderColor--100);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--pf-v5-global--Color--200);
+}
