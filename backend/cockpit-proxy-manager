@@ -96,7 +96,6 @@ def test_proxy(cfg):
 	return False, "All check URLs failed or did not return 204"
 
 def write_target_configs(cfg, proxy_url):
-	# APT
 	if cfg["targets"].get("apt"):
 		lines = []
 		lines.append(f'Acquire::http::Proxy "{proxy_url}";')
@@ -108,7 +107,6 @@ def write_target_configs(cfg, proxy_url):
 		APT_CONF = Path("/etc/apt/apt.conf.d/01proxy")
 		APT_CONF.write_text("\n".join(lines) + "\n")
 
-	# System / PackageKit / curl via /etc/environment
 	if cfg["targets"].get("system") or cfg["targets"].get("packagekit") or cfg["targets"].get("curl"):
 		env_file = Path("/etc/environment")
 		lines = []
@@ -126,7 +124,6 @@ def write_target_configs(cfg, proxy_url):
 		env_file.write_text("\n".join(lines) + "\n")
 		subprocess.run(["systemctl", "reload", "packagekit"], capture_output=True, check=False)
 
-	# curl global config
 	if cfg["targets"].get("curl"):
 		curlrc = Path("/etc/curlrc")
 		lines = []
@@ -157,6 +154,11 @@ def handle_command(cmd, payload):
 		save_config(cfg)
 		STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
 		STATUS_FILE.write_text(json.dumps({"state": "active", "last_check": time.time(), "proxy_ok": True}, indent="\t"))
+		
+		# Auto-refresh APT cache for cockpit-apt compatibility
+		if cfg["targets"].get("apt"):
+			subprocess.run(["apt-get", "update", "-qq"], capture_output=True, check=False)
+		
 		send({"success": True, "message": "Settings saved and applied successfully"})
 	elif cmd == "disable-proxy":
 		cfg = load_config()
