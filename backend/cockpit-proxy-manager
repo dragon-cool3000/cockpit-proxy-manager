@@ -5,6 +5,7 @@
 import sys
 import json
 import os
+import re
 import subprocess
 import urllib.parse
 import time
@@ -95,6 +96,89 @@ def test_proxy(cfg):
 			continue
 	return False, "All check URLs failed or did not return 204"
 
+def parse_system_files():
+	cfg = get_default_config()
+	cfg["enabled"] = False
+	cfg["targets"] = {"apt": False, "packagekit": False, "curl": False, "system": False}
+	cfg["packages"] = check_packages()
+
+	# Parse APT
+	apt_file = Path("/etc/apt/apt.conf.d/01proxy")
+	if apt_file.exists():
+		cfg["targets"]["apt"] = True
+		cfg["enabled"] = True
+		for line in apt_file.read_text().splitlines():
+			line = line.strip()
+			if 'Acquire::http::Proxy' in line and '::' not in line:
+				m = re.search(r'"([^"]+)"', line)
+				if m: cfg["http_proxy"] = m.group(1)
+			elif 'Acquire::https::Proxy' in line:
+				m = re.search(r'"([^"]+)"', line)
+				if m: cfg["https_proxy"] = m.group(1)
+			elif 'Acquire::http::Proxy::' in line and 'DIRECT' in line:
+				m = re.search(r'Proxy::([^"]+) "DIRECT"', line)
+				if m:
+					host = m.group(1)
+					if host not in cfg["no_proxy"]:
+						cfg["no_proxy"] += f",{host}" if cfg["no_proxy"] else host
+
+	# Parse /etc/environment
+	env_file = Path("/etc/environment")
+	if env_file.exists():
+		for line in env_file.read_text().splitlines():
+			line = line.strip()
+			if line.startswith("http_proxy="):
+				cfg["http_proxy"] = line.split("=",1)[1].strip('"\'')
+				cfg["targets"]["system"] = True
+				cfg["enabled"] = True
+			elif line.startswith("https_proxy="):
+				cfg["https_proxy"] = line.split("=",1)[1].strip('"\'')
+			elif line.startswith("all_proxy="):
+				cfg["all_proxy"] = line.split("=",1)[1].strip('"\'')
+			elif line.startswith("socks_proxy="):
+				cfg["socks_proxy"] = line.split("=",1)[1].strip('"\'')
+				cfg["type"] = "socks5"
+			elif line.startswith("no_proxy="):
+				cfg["no_proxy"] = line.split("=",1)[1].strip('"\'')
+
+	# Parse curlrc
+	curlrc = Path("/etc/curlrc")
+	if curlrc.exists():
+		for line in curlrc.read_text().splitlines():
+			if line.startswith("proxy =") or line.startswith("proxy="):
+				cfg["curl_proxy"] = line.split("=",1)[1].strip('"\' ')
+				cfg["targets"]["curl"] = True
+				cfg["enabled"] = True
+
+	# Reconstruct unified UI fields
+	proxy_url = cfg.get("http_proxy") or cfg.get("https_proxy") or cfg.get("all_proxy") or cfg.get("curl_proxy") or ""
+	if proxy_url:
+		try:
+			u = urllib.parse.urlparse(proxy_url)
+			cfg["type"] = u.scheme if u.scheme in ("http","https","socks5") else "http"
+			cfg["host"] = u.hostname or ""
+			cfg["port"] = u.port or (3128 if cfg["type"] != "socks5" else 1080)
+			cfg["username"] = u.username or ""
+			cfg["password"] = ""
+		except Exception:
+			pass
+
+	return cfg
+
+def resync_config():
+	current = load_config()
+	system = parse_system_files()
+	
+	# Remove password from system state for safe comparison
+	system_copy = dict(system)
+	system_copy.pop("password", None)
+	current_copy = dict(current)
+	current_copy.pop("password", None)
+	
+	drift_detected = (system_copy != current_copy)
+	system["drift_detected"] = drift_detected
+	return system
+
 def write_target_configs(cfg, proxy_url):
 	if cfg["targets"].get("apt"):
 		lines = []
@@ -136,6 +220,8 @@ def write_target_configs(cfg, proxy_url):
 def handle_command(cmd, payload):
 	if cmd == "get-config":
 		send(load_config())
+	elif cmd == "resync-config":
+		send(resync_config())
 	elif cmd == "test-proxy":
 		cfg = payload.get("config", load_config())
 		ok, msg = test_proxy(cfg)
@@ -155,7 +241,6 @@ def handle_command(cmd, payload):
 		STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
 		STATUS_FILE.write_text(json.dumps({"state": "active", "last_check": time.time(), "proxy_ok": True}, indent="\t"))
 		
-		# Auto-refresh APT cache for cockpit-apt compatibility
 		if cfg["targets"].get("apt"):
 			subprocess.run(["apt-get", "update", "-qq"], capture_output=True, check=False)
 		
