@@ -14,15 +14,12 @@ fi
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 log_info "Installing from: $REPO_DIR"
 
-# Dependencies
 for cmd in cockpit-bridge systemctl curl; do
 	command -v "$cmd" &>/dev/null || { log_error "Missing: $cmd"; exit 2; }
 done
 
-# Directories
 mkdir -p /usr/share/cockpit/proxy-manager/po /etc/cockpit/proxy-manager /var/run/cockpit-proxy-manager /usr/local/libexec || exit 3
 
-# Copy files
 cp "$REPO_DIR/backend/cockpit-proxy-manager" /usr/local/libexec/ || exit 4
 cp "$REPO_DIR/monitor/cockpit-proxy-monitor" /usr/local/libexec/ || exit 4
 chmod +x /usr/local/libexec/cockpit-proxy-manager /usr/local/libexec/cockpit-proxy-monitor
@@ -33,11 +30,9 @@ cp "$REPO_DIR/frontend/proxy.js" /usr/share/cockpit/proxy-manager/ || exit 5
 cp "$REPO_DIR/frontend/proxy.css" /usr/share/cockpit/proxy-manager/ || exit 5
 cp "$REPO_DIR/frontend/po/"*.json /usr/share/cockpit/proxy-manager/po/ 2>/dev/null || log_warn "Translations missing"
 
-# Permissions
 chmod -R a+rX /usr/share/cockpit/proxy-manager/
 chmod 755 /usr/share/cockpit/proxy-manager /usr/share/cockpit/proxy-manager/po 2>/dev/null || true
 
-# Sudoers
 cat > /etc/sudoers.d/cockpit-proxy-manager <<'EOF'
 %wheel ALL=(ALL) NOPASSWD: /usr/local/libexec/cockpit-proxy-manager
 %wheel ALL=(ALL) NOPASSWD: /usr/local/libexec/cockpit-proxy-monitor
@@ -46,7 +41,6 @@ cat > /etc/sudoers.d/cockpit-proxy-manager <<'EOF'
 EOF
 chmod 440 /etc/sudoers.d/cockpit-proxy-manager 2>/dev/null || log_warn "sudoers failed"
 
-# Default config
 [ -f /etc/cockpit/proxy-manager/config.json ] || cat > /etc/cockpit/proxy-manager/config.json <<'EOF'
 {
 	"enabled": false,
@@ -71,7 +65,6 @@ chmod 440 /etc/sudoers.d/cockpit-proxy-manager 2>/dev/null || log_warn "sudoers 
 EOF
 chmod 600 /etc/cockpit/proxy-manager/config.json
 
-# Systemd monitor
 cat > /etc/systemd/system/cockpit-proxy-monitor.service <<'EOF'
 [Unit]
 Description=Cockpit Proxy Health Monitor
@@ -91,11 +84,11 @@ EOF
 systemctl daemon-reload 2>/dev/null || true
 systemctl enable --now cockpit-proxy-monitor 2>/dev/null || log_warn "Monitor service failed"
 
-# Restart Cockpit
+# CRITICAL: Restart cockpit to load new backend
 systemctl restart cockpit.socket 2>/dev/null || true
 systemctl restart cockpit 2>/dev/null || true
+sleep 2
 
-# Verify
 if cockpit-bridge --packages 2>/dev/null | grep -q proxy-manager; then
 	log_info "✅ Module registered"
 else
@@ -107,3 +100,8 @@ echo "✅ Installation complete."
 echo "🌐 Open: https://$(hostname -I | awk '{print $1}' | head -1):9090"
 echo "🔍 Tools → Proxy Manager"
 echo "🌍 Language: English (default) or Russian"
+echo ""
+echo "🔧 If you see 'not-supported':"
+echo "   1. Ensure backend is executable: ls -l /usr/local/libexec/cockpit-proxy-manager"
+echo "   2. Restart cockpit: sudo systemctl restart cockpit"
+echo "   3. Hard reload browser: Ctrl+Shift+R"
