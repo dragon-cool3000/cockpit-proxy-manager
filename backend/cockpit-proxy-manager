@@ -9,6 +9,15 @@ CONFIG_DIR = Path("/etc/cockpit/proxy-manager")
 CONFIG_FILE = CONFIG_DIR / "config.json"
 STATUS_FILE = Path("/var/run/cockpit-proxy-manager/status.json")
 
+# Default values — MUST match frontend defaults
+DEFAULT_NO_PROXY = "127.0.0.1,localhost,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7,fe80::/10"
+DEFAULT_CHECK_URLS = [
+	"http://connect.rom.miui.com/generate_204",
+	"http://connectivitycheck.platform.hicloud.com/generate_204",
+	"http://www.qualcomm.cn/generate_204",
+	"http://captcha.qq.com/generate_204"
+]
+
 def send(msg):
 	print(json.dumps(msg), flush=True)
 
@@ -25,30 +34,35 @@ def get_default_config():
 	return {
 		"enabled": False, "type": "http", "host": "localhost", "port": 57800,
 		"username": "", "password": "",
-		"no_proxy": "127.0.0.1,localhost,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7,fe80::/10",
-		"check_urls": [
-			"http://connect.rom.miui.com/generate_204",
-			"http://connectivitycheck.platform.hicloud.com/generate_204",
-			"http://www.qualcomm.cn/generate_204",
-			"http://captcha.qq.com/generate_204"
-		],
+		"no_proxy": DEFAULT_NO_PROXY,
+		"check_urls": DEFAULT_CHECK_URLS,
 		"check_timeout": 5, "monitor_enabled": False, "monitor_interval": 60,
 		"targets": {"apt": True, "packagekit": True, "curl": True, "system": True},
 		"packages": check_packages(),
-		"app_configs": {}  # Per-app proxy overrides
+		"app_configs": {}
 	}
 
 def load_config():
+	defaults = get_default_config()
 	if CONFIG_FILE.exists():
 		try:
 			cfg = json.loads(CONFIG_FILE.read_text())
-			cfg["packages"] = check_packages()
-			if "password" not in cfg: cfg["password"] = ""
-			if "app_configs" not in cfg: cfg["app_configs"] = {}
+			# CRITICAL: Merge missing fields from defaults
+			for key in defaults:
+				if key not in cfg or cfg[key] is None:
+					cfg[key] = defaults[key]
+			# Ensure nested defaults
+			if "app_configs" not in cfg:
+				cfg["app_configs"] = {}
+			if "packages" not in cfg:
+				cfg["packages"] = check_packages()
+			if "password" not in cfg:
+				cfg["password"] = ""
 			return cfg
-		except Exception:
+		except Exception as e:
+			sys.stderr.write(f"[backend] Config load error: {e}\n")
 			pass
-	return get_default_config()
+	return defaults
 
 def save_config(cfg):
 	CONFIG_DIR.mkdir(parents=True, exist_ok=True)
@@ -126,7 +140,7 @@ def apply_to_target(cfg, target):
 	username = ac.get("username") or cfg.get("username")
 	password = ac.get("password") or cfg.get("password")
 	ptype = ac.get("type") or cfg.get("type", "http")
-	no_proxy = cfg.get("no_proxy", "")
+	no_proxy = cfg.get("no_proxy", DEFAULT_NO_PROXY)
 
 	if target == "apt":
 		write_apt_config(host, port, username, password, ptype, no_proxy)
@@ -170,12 +184,17 @@ def handle_command(cmd, payload):
 	elif cmd == "resync-config":
 		system = parse_system_files()
 		current = load_config()
-		system["drift_detected"] = (system.get("no_proxy") != current.get("no_proxy"))
+		# Compare key fields for drift detection
+		drift = (
+			system.get("no_proxy") != current.get("no_proxy") or
+			system.get("check_urls") != current.get("check_urls") or
+			system.get("http_proxy") != current.get("http_proxy")
+		)
+		system["drift_detected"] = drift
 		send(system)
 	elif cmd == "test-proxy":
 		cfg = payload.get("config", load_config())
 		ac = cfg.get("app_configs", {})
-		# Test global + each enabled app
 		results = {}
 		for tgt in ["apt","packagekit","curl","system"]:
 			if cfg.get("targets",{}).get(tgt):
@@ -186,7 +205,7 @@ def handle_command(cmd, payload):
 					app.get("username") or cfg.get("username"),
 					app.get("password") or cfg.get("password"),
 					app.get("type") or cfg.get("type","http"),
-					cfg.get("check_urls", [])
+					cfg.get("check_urls", DEFAULT_CHECK_URLS)
 				)
 				results[tgt] = {"ok": ok, "msg": msg}
 		all_ok = any(r["ok"] for r in results.values())
@@ -197,7 +216,6 @@ def handle_command(cmd, payload):
 		if not cfg:
 			send({"success": False, "message": "No configuration provided"})
 			return
-		# Test before applying
 		ac = cfg.get("app_configs", {})
 		tgts = [target] if target else [t for t in ["apt","packagekit","curl","system"] if cfg.get("targets",{}).get(t)]
 		for tgt in tgts:
@@ -208,15 +226,13 @@ def handle_command(cmd, payload):
 				app.get("username") or cfg.get("username"),
 				app.get("password") or cfg.get("password"),
 				app.get("type") or cfg.get("type","http"),
-				cfg.get("check_urls", [])
+				cfg.get("check_urls", DEFAULT_CHECK_URLS)
 			)
 			if not ok:
 				send({"success": False, "message": f"{tgt}: {msg} — NOT applied"})
 				return
-		# Apply
 		for tgt in tgts:
 			apply_to_target(cfg, tgt)
-		# Save per-app configs
 		if "app_configs" in cfg:
 			cfg["app_configs"] = {k:v for k,v in cfg["app_configs"].items() if cfg.get("targets",{}).get(k)}
 		save_config(cfg)
@@ -233,7 +249,6 @@ def handle_command(cmd, payload):
 			cfg["enabled"] = False
 			cfg["targets"] = {k:False for k in cfg["targets"]}
 		save_config(cfg)
-		# Clear configs for disabled target
 		if target and target in cfg.get("app_configs", {}):
 			del cfg["app_configs"][target]
 			save_config(cfg)
