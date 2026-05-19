@@ -12,6 +12,7 @@
 		.log-box { height: 120px; overflow-y: auto; background: #111; color: #0f0; font-family: monospace; font-size: 0.8rem; padding: 0.5rem; border: 1px solid #444; margin-top: 1rem; }
 		.disabled-row { opacity: 0.5; pointer-events: none; }
 		.hint-box { color: var(--pf-v5-global--Color--200); font-size: 0.85rem; margin-top: 0.5rem; }
+		.toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
 	</style>
 </head>
 <body>
@@ -80,7 +81,8 @@
 				</div>
 			</div>
 
-			<div class="pf-v5-c-toolbar pf-m-page-insets" style="margin-top:1rem">
+			<div class="toolbar">
+				<button id="btnResync" class="pf-v5-c-button pf-m-control" data-i18n="btn_resync">↻ Resync from System</button>
 				<button id="btnTest" class="pf-v5-c-button pf-m-primary" data-i18n="btn_test">🧪 Test Connection</button>
 				<button id="btnApply" class="pf-v5-c-button pf-m-secondary" data-i18n="btn_apply">💾 Apply Settings</button>
 				<button id="btnDisable" class="pf-v5-c-button pf-m-link pf-m-danger" data-i18n="btn_disable">🔌 Disable Proxy</button>
