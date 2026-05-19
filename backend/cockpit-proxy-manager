@@ -1,0 +1,181 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Cockpit Proxy Manager Backend (Privileged Bridge)"""
+
+import sys
+import json
+import os
+import subprocess
+import urllib.parse
+import time
+from pathlib import Path
+
+CONFIG_DIR = Path("/etc/cockpit/proxy-manager")
+CONFIG_FILE = CONFIG_DIR / "config.json"
+STATUS_FILE = Path("/var/run/cockpit-proxy-manager/status.json")
+
+def send(msg):
+	print(json.dumps(msg), flush=True)
+
+def check_packages():
+	def is_installed(name):
+		try:
+			res = subprocess.run(["dpkg-query", "-W", "-f=${Status}", name], capture_output=True, text=True, check=False)
+			return "install ok installed" in res.stdout
+		except Exception:
+			return False
+	return {
+		"apt": True,
+		"packagekit": is_installed("packagekit"),
+		"curl": is_installed("curl")
+	}
+
+def get_default_config():
+	return {
+		"enabled": False,
+		"type": "http",
+		"host": "localhost",
+		"port": 57800,
+		"username": "",
+		"password": "",
+		"no_proxy": "127.0.0.1,localhost,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7,fe80::/10",
+		"check_urls": [
+			"http://connect.rom.miui.com/generate_204",
+			"http://connectivitycheck.platform.hicloud.com/generate_204",
+			"http://www.qualcomm.cn/generate_204",
+			"http://captcha.qq.com/generate_204"
+		],
+		"check_timeout": 5,
+		"monitor_enabled": False,
+		"monitor_interval": 60,
+		"targets": {"apt": True, "packagekit": True, "curl": True, "system": True},
+		"packages": check_packages()
+	}
+
+def load_config():
+	if CONFIG_FILE.exists():
+		cfg = json.loads(CONFIG_FILE.read_text())
+		cfg["packages"] = check_packages()
+		if "password" not in cfg:
+			cfg["password"] = ""
+		return cfg
+	return get_default_config()
+
+def save_config(cfg):
+	CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+	CONFIG_FILE.write_text(json.dumps(cfg, indent="\t"))
+	os.chmod(str(CONFIG_FILE), 0o600)
+
+def build_proxy_url(cfg):
+	if not cfg["host"] or not cfg["port"]:
+		return None
+	auth = ""
+	if cfg["username"]:
+		auth = urllib.parse.quote(cfg["username"], safe="") + ":" + urllib.parse.quote(cfg["password"], safe="") + "@"
+	scheme = cfg["type"] if cfg["type"] in ("http", "https", "socks5") else "http"
+	return f"{scheme}://{auth}{cfg['host']}:{cfg['port']}"
+
+def test_proxy(cfg):
+	proxy_url = build_proxy_url(cfg)
+	if not proxy_url:
+		return False, "Invalid proxy URL"
+
+	for url in cfg["check_urls"]:
+		try:
+			res = subprocess.run([
+				"curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
+				"--proxy", proxy_url,
+				"--max-time", str(cfg.get("check_timeout", 5)),
+				"--connect-timeout", "3",
+				url
+			], capture_output=True, text=True, timeout=cfg.get("check_timeout", 5) + 2)
+			if res.returncode == 0 and res.stdout.strip() == "204":
+				return True, f"OK: {url}"
+		except Exception:
+			continue
+	return False, "All check URLs failed or did not return 204"
+
+def write_target_configs(cfg, proxy_url):
+	# APT
+	if cfg["targets"].get("apt"):
+		lines = []
+		lines.append(f'Acquire::http::Proxy "{proxy_url}";')
+		lines.append(f'Acquire::https::Proxy "{proxy_url}";')
+		for h in cfg["no_proxy"].split(","):
+			h = h.strip()
+			if h:
+				lines.append(f'Acquire::http::Proxy::{h} "DIRECT";')
+		APT_CONF = Path("/etc/apt/apt.conf.d/01proxy")
+		APT_CONF.write_text("\n".join(lines) + "\n")
+
+	# System / PackageKit / curl via /etc/environment
+	if cfg["targets"].get("system") or cfg["targets"].get("packagekit") or cfg["targets"].get("curl"):
+		env_file = Path("/etc/environment")
+		lines = []
+		if env_file.exists():
+			lines = [l for l in env_file.read_text().splitlines()
+			         if not any(l.startswith(k) for k in ["http_proxy", "https_proxy", "all_proxy", "no_proxy", "socks_proxy"])]
+		
+		if cfg["enabled"] and proxy_url:
+			lines.append(f'http_proxy="{proxy_url}"')
+			lines.append(f'https_proxy="{proxy_url}"')
+			lines.append(f'all_proxy="{proxy_url}"')
+			if cfg["type"] == "socks5":
+				lines.append(f'socks_proxy="{proxy_url}"')
+			lines.append(f'no_proxy="{cfg["no_proxy"]}"')
+		env_file.write_text("\n".join(lines) + "\n")
+		subprocess.run(["systemctl", "reload", "packagekit"], capture_output=True, check=False)
+
+	# curl global config
+	if cfg["targets"].get("curl"):
+		curlrc = Path("/etc/curlrc")
+		lines = []
+		if curlrc.exists():
+			lines = [l for l in curlrc.read_text().splitlines() if not l.startswith("proxy")]
+		if cfg["enabled"] and proxy_url:
+			lines.append(f'proxy = "{proxy_url}"')
+		curlrc.write_text("\n".join(lines) + "\n")
+
+def handle_command(cmd, payload):
+	if cmd == "get-config":
+		send(load_config())
+	elif cmd == "test-proxy":
+		cfg = payload.get("config", load_config())
+		ok, msg = test_proxy(cfg)
+		send({"success": ok, "message": msg})
+	elif cmd == "apply-config":
+		cfg = payload.get("config")
+		if not cfg:
+			send({"success": False, "message": "No configuration provided"})
+			return
+		ok, msg = test_proxy(cfg)
+		if not ok:
+			send({"success": False, "message": msg + " Settings NOT applied."})
+			return
+		proxy_url = build_proxy_url(cfg)
+		write_target_configs(cfg, proxy_url)
+		save_config(cfg)
+		STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
+		STATUS_FILE.write_text(json.dumps({"state": "active", "last_check": time.time(), "proxy_ok": True}, indent="\t"))
+		send({"success": True, "message": "Settings saved and applied successfully"})
+	elif cmd == "disable-proxy":
+		cfg = load_config()
+		cfg["enabled"] = False
+		write_target_configs(cfg, None)
+		save_config(cfg)
+		send({"success": True, "message": "Proxy disabled"})
+	else:
+		send({"error": "Unknown command"})
+
+def main():
+	for line in sys.stdin:
+		line = line.strip()
+		if not line: continue
+		try:
+			req = json.loads(line)
+			handle_command(req.get("command"), req)
+		except Exception as e:
+			send({"error": str(e)})
+
+if __name__ == "__main__":
+	main()
