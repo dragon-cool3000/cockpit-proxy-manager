@@ -12,7 +12,15 @@
 	let isDragging = false;
 	let startY, startHeight, startPaneHeight;
 
-	// Safe translation loader
+	// Default values — CRITICAL: used when config is missing fields
+	const DEFAULT_NO_PROXY = "127.0.0.1,localhost,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7,fe80::/10";
+	const DEFAULT_CHECK_URLS = [
+		"http://connect.rom.miui.com/generate_204",
+		"http://connectivitycheck.platform.hicloud.com/generate_204",
+		"http://www.qualcomm.cn/generate_204",
+		"http://captcha.qq.com/generate_204"
+	];
+
 	function loadTranslations(lang) {
 		const path = `po/${lang}.json`;
 		return new Promise((resolve) => {
@@ -45,19 +53,19 @@
 	function applyTranslations() {
 		if (!translations) return;
 		$$("[data-i18n]").forEach(el => {
-			const key = el.getAttribute("data-i18n");
+			const key = el?.getAttribute("data-i18n");
 			if (key && el && translations[key]) {
 				el.textContent = translations[key];
 			}
 		});
 		$$("[data-i18n-title]").forEach(el => {
-			const key = el.getAttribute("data-i18n-title");
+			const key = el?.getAttribute("data-i18n-title");
 			if (key && el && translations[key]) {
 				el.setAttribute("title", translations[key]);
 			}
 		});
 		$$("[data-i18n-placeholder]").forEach(el => {
-			const key = el.getAttribute("data-i18n-placeholder");
+			const key = el?.getAttribute("data-i18n-placeholder");
 			if (key && el && translations[key]) {
 				el.setAttribute("placeholder", translations[key]);
 			}
@@ -140,28 +148,31 @@
 		el(`${prefix}Host`, data.host);
 		el(`${prefix}Port`, data.port || (data.type === "socks5" ? 1080 : 3128));
 		el(`${prefix}User`, data.username);
-		// Password not set from config for security
 	}
 
 	function populateUI(cfg) {
 		if (!cfg) return;
 		config = cfg;
 
-		// Global settings
+		// Global settings — CRITICAL: always set defaults if missing
 		const g = $("pType"); if (g) g.value = cfg.type || "http";
 		const en = $("pEnabled"); if (en) en.checked = !!cfg.enabled;
 		const h = $("pHost"); if (h) h.value = cfg.host || "";
 		const p = $("pPort"); if (p) p.value = cfg.port || 3128;
 		const u = $("pUser"); if (u) u.value = cfg.username || "";
-		// Password field left empty for security
+		
+		// Bypass List — ALWAYS set default if missing
 		const np = $("pNoProxy");
-		if (np) np.value = cfg.no_proxy || "127.0.0.1,localhost,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7,fe80::/10";
-		checkUrls = cfg.check_urls || [
-			"http://connect.rom.miui.com/generate_204",
-			"http://connectivitycheck.platform.hicloud.com/generate_204",
-			"http://www.qualcomm.cn/generate_204",
-			"http://captcha.qq.com/generate_204"
-		];
+		if (np) {
+			np.value = (cfg.no_proxy && cfg.no_proxy.trim()) ? cfg.no_proxy : DEFAULT_NO_PROXY;
+		}
+		
+		// Check URLs — ALWAYS set defaults if missing or empty
+		if (cfg.check_urls && cfg.check_urls.length > 0) {
+			checkUrls = cfg.check_urls;
+		} else {
+			checkUrls = [...DEFAULT_CHECK_URLS];
+		}
 		renderUrls();
 
 		// Monitoring
@@ -216,8 +227,8 @@
 			port: parseInt($("pPort")?.value) || 3128,
 			username: $("pUser")?.value?.trim() || "",
 			password: $("pPass")?.value || "",
-			no_proxy: $("pNoProxy")?.value || "",
-			check_urls: checkUrls,
+			no_proxy: $("pNoProxy")?.value || DEFAULT_NO_PROXY,
+			check_urls: checkUrls?.length ? checkUrls : [...DEFAULT_CHECK_URLS],
 			monitor_enabled: $("mEnabled")?.checked || false,
 			monitor_interval: parseInt($("mInterval")?.value) || 60
 		};
@@ -251,7 +262,13 @@
 		});
 		ch.addEventListener("close", (ev, opts) => {
 			if (opts.problem) {
-				addLog(`Channel closed: ${opts.problem}`, "error");
+				// Handle "not-supported" gracefully
+				if (opts.problem === "not-supported") {
+					addLog("Backend not available. Please restart cockpit: sudo systemctl restart cockpit", "error");
+					showStatus("Backend not connected. Restart cockpit and try again.", "danger");
+				} else {
+					addLog(`Channel closed: ${opts.problem}`, "error");
+				}
 				if (onError) onError({ message: opts.problem });
 			}
 		});
@@ -270,7 +287,6 @@
 	function applyToTarget(target) {
 		const globalCfg = collectGlobal();
 		const appCfgs = collectAppConfigs();
-		// Override global with app-specific if set
 		const app = appCfgs[target];
 		const cfg = {
 			...globalCfg,
@@ -284,7 +300,6 @@
 			(res) => {
 				showStatus(t("apply_success", target), "success");
 				updateAppStatus(target, "ok");
-				// Refresh config
 				cockpit.channel({ payload: "proxy-manager", command: "get-config" })
 					.addEventListener("message", (ev, data) => populateUI(JSON.parse(data)));
 			},
@@ -341,15 +356,26 @@
 		);
 	});
 
-	// Resync
+	// Resync — with better error handling
 	$("btnResync")?.addEventListener("click", () => {
 		sendCmd("resync-config", {},
 			(res) => {
-				populateUI(res);
-				showStatus(res.drift_detected ? t("drift_detected") : t("resync_no_change"),
-					res.drift_detected ? "warning" : "success");
+				if (res && typeof res === "object") {
+					populateUI(res);
+					showStatus(res.drift_detected ? t("drift_detected") : t("resync_no_change"),
+						res.drift_detected ? "warning" : "success");
+				} else {
+					showStatus("Resync completed", "success");
+				}
 			},
-			(res) => showStatus(res.message, "danger")
+			(res) => {
+				// Don't show "not-supported" as fatal
+				if (res?.message?.includes("not-supported")) {
+					showStatus("Resync: Backend not available. Restart cockpit.", "warning");
+				} else {
+					showStatus(res?.message || "Resync failed", "danger");
+				}
+			}
 		);
 	});
 
@@ -374,7 +400,8 @@
 		divider.addEventListener("mousedown", (e) => {
 			isDragging = true;
 			startY = e.clientY;
-			startPaneHeight = container.offsetHeight;
+			const rect = container.getBoundingClientRect();
+			startPaneHeight = rect.height;
 			startHeight = settings.offsetHeight;
 			document.body.style.cursor = "row-resize";
 			document.body.style.userSelect = "none";
@@ -385,7 +412,7 @@
 			if (!isDragging) return;
 			const dy = e.clientY - startY;
 			const newSettingsHeight = Math.max(200, Math.min(startPaneHeight - 100, startHeight + dy));
-			const newLogHeight = startPaneHeight - newSettingsHeight - 8; // 8px divider
+			const newLogHeight = startPaneHeight - newSettingsHeight - 16; // 16px divider
 			settings.style.flex = `0 0 ${newSettingsHeight}px`;
 			log.style.flex = `0 0 ${newLogHeight}px`;
 		});
@@ -399,10 +426,8 @@
 		});
 
 		// Initial 75/25 split
-		container.addEventListener("DOMContentLoaded", () => {
-			settings.style.flex = "0 0 75%";
-			log.style.flex = "0 0 25%";
-		});
+		settings.style.flex = "0 0 75%";
+		log.style.flex = "0 0 25%";
 	}
 
 	// Init
@@ -416,7 +441,13 @@
 				try { populateUI(JSON.parse(data)); } catch(e) { addLog(`Config parse: ${e}`, "error"); }
 			});
 			channel.addEventListener("close", (ev, opts) => {
-				if (opts.problem) addLog(`Backend: ${opts.problem}`, "error");
+				if (opts.problem) {
+					if (opts.problem === "not-supported") {
+						addLog("⚠️ Backend not connected. Run: sudo systemctl restart cockpit", "warning");
+					} else {
+						addLog(`Backend: ${opts.problem}`, "error");
+					}
+				}
 			});
 		});
 		initSplitPane();
