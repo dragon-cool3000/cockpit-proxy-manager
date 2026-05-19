@@ -5,10 +5,10 @@
 	},
 	"tools": {
 		"proxy-manager": {
-			"label": "Advanced Proxy Manager",
+			"label": "Proxy Manager",
 			"path": "proxy.html",
 			"keywords": [
-				{"matches": ["proxy", "apt", "curl", "monitor", "network"]}
+				{"matches": ["proxy", "apt", "curl", "monitor", "network", "packagekit"]}
 			]
 		}
 	},
