@@ -3,259 +3,291 @@
 <head>
 	<title data-i18n="title">Proxy Manager</title>
 	<meta charset="utf-8">
-	<link href="../base1/patternfly.css" type="text/css" rel="stylesheet">
-	<link href="../base1/cockpit.css" type="text/css" rel="stylesheet">
+	<!-- Cockpit автоматически подключает base1/cockpit.css и PatternFly -->
 	<script src="../base1/cockpit.js"></script>
+	<link href="proxy.css" type="text/css" rel="stylesheet">
 </head>
 <body class="pf-v5-c-page">
 	<main class="pf-v5-c-page__main" id="app">
 		<section class="pf-v5-c-page__main-section pf-m-light">
-			<div class="pf-v5-c-content">
+			<div class="pf-v5-c-content pf-u-mb-md">
 				<h1 data-i18n="title">Proxy Manager</h1>
 				<p class="pf-v5-u-font-size-sm pf-v5-u-color-200" data-i18n="subtitle">Configure proxy settings for system and applications</p>
 			</div>
 
-			<!-- Global Settings Card -->
-			<div class="pf-v5-c-card pf-u-mb-md">
-				<div class="pf-v5-c-card__header">
-					<h2 class="pf-v5-c-card__title" data-i18n="global_settings">Global Settings</h2>
-				</div>
-				<div class="pf-v5-c-card__body">
-					<form class="pf-v5-c-form pf-m-horizontal">
-						<div class="pf-v5-c-form__group">
-							<label class="pf-v5-c-form__label" for="pType">
-								<span class="pf-v5-c-form__label-text" data-i18n="proxy_type">Proxy Type</span>
-							</label>
-							<div class="pf-v5-c-form__group-control">
-								<select id="pType" class="pf-v5-c-form-control">
-									<option value="http" data-i18n="type_http">HTTP</option>
-									<option value="https" data-i18n="type_https">HTTPS</option>
-									<option value="socks5" data-i18n="type_socks5">SOCKS5</option>
-								</select>
-							</div>
+			<!-- Split-pane container -->
+			<div id="mainContainer">
+				<!-- Settings Pane (top 75%) -->
+				<div id="settingsPane">
+					<!-- Global Settings Card -->
+					<div class="pf-v5-c-card pf-u-mb-md">
+						<div class="pf-v5-c-card__header">
+							<h2 class="pf-v5-c-card__title" data-i18n="global_settings">Global Settings</h2>
 						</div>
-
-						<div class="pf-v5-c-form__group">
-							<label class="pf-v5-c-form__label">
-								<input type="checkbox" id="pEnabled" class="pf-v5-c-check">
-								<span class="pf-v5-c-form__label-text" data-i18n="proxy_enabled">Enable Proxy</span>
-							</label>
-						</div>
-
-						<div class="pf-v5-c-form__group">
-							<label class="pf-v5-c-form__label" for="pHost">
-								<span class="pf-v5-c-form__label-text" data-i18n="proxy_host">Proxy Host</span>
-							</label>
-							<div class="pf-v5-c-form__group-control">
-								<input type="text" id="pHost" class="pf-v5-c-form-control" data-i18n-placeholder="proxy_host">
-								<div class="pf-v5-c-form__helper-text" data-i18n="proxy_host_hint">Hostname or IP address</div>
-							</div>
-						</div>
-
-						<div class="pf-v5-c-form__group">
-							<label class="pf-v5-c-form__label" for="pPort">
-								<span class="pf-v5-c-form__label-text" data-i18n="proxy_port">Proxy Port</span>
-							</label>
-							<div class="pf-v5-c-form__group-control">
-								<input type="number" id="pPort" class="pf-v5-c-form-control" min="1" max="65535" data-i18n-placeholder="proxy_port">
-								<div class="pf-v5-c-form__helper-text" data-i18n="proxy_port_hint">Port number (e.g., 3128 for HTTP)</div>
-							</div>
-						</div>
-
-						<div class="pf-v5-c-form__group">
-							<label class="pf-v5-c-form__label" for="pUser">
-								<span class="pf-v5-c-form__label-text" data-i18n="proxy_username">Username</span>
-							</label>
-							<div class="pf-v5-c-form__group-control">
-								<input type="text" id="pUser" class="pf-v5-c-form-control" data-i18n-placeholder="proxy_username">
-								<div class="pf-v5-c-form__helper-text" data-i18n="proxy_username_hint">Leave empty if no authentication</div>
-							</div>
-						</div>
-
-						<div class="pf-v5-c-form__group">
-							<label class="pf-v5-c-form__label" for="pPass">
-								<span class="pf-v5-c-form__label-text" data-i18n="proxy_password">Password</span>
-							</label>
-							<div class="pf-v5-c-form__group-control">
-								<input type="password" id="pPass" class="pf-v5-c-form-control" data-i18n-placeholder="proxy_password">
-								<div class="pf-v5-c-form__helper-text" data-i18n="proxy_password_hint">Stored encrypted, root access only</div>
-							</div>
-						</div>
-
-						<div class="pf-v5-c-form__group">
-							<label class="pf-v5-c-form__label" for="pNoProxy">
-								<span class="pf-v5-c-form__label-text" data-i18n="bypass_list">Bypass List (DIRECT)</span>
-							</label>
-							<div class="pf-v5-c-form__group-control">
-								<textarea id="pNoProxy" class="pf-v5-c-form-control" rows="2" data-i18n-placeholder="bypass_list"></textarea>
-								<div class="pf-v5-c-form__helper-text" data-i18n="bypass_list_hint">Comma-separated hosts/subnets</div>
-							</div>
-						</div>
-
-						<div class="pf-v5-c-form__group">
-							<label class="pf-v5-c-form__label">
-								<span class="pf-v5-c-form__label-text" data-i18n="check_urls">Connectivity Check URLs</span>
-							</label>
-							<div class="pf-v5-c-form__group-control">
-								<div class="pf-v5-c-input-group">
-									<input type="text" id="newUrl" class="pf-v5-c-form-control" placeholder="http://.../generate_204">
-									<button type="button" id="addUrlBtn" class="pf-v5-c-button pf-m-control" data-i18n="add_url">+ Add</button>
-								</div>
-								<div id="urlList" class="pf-v5-c-list pf-m-plain pf-u-mt-sm"></div>
-								<div class="pf-v5-c-form__helper-text" data-i18n="check_urls_hint">HTTP 204 endpoints, at least one must succeed</div>
-							</div>
-						</div>
-
-						<div class="pf-v5-c-form__group">
-							<label class="pf-v5-c-form__label">
-								<span class="pf-v5-c-form__label-text" data-i18n="monitoring">Health Monitoring</span>
-							</label>
-							<div class="pf-v5-c-form__group-control">
-								<div class="pf-v5-c-check">
-									<input type="checkbox" id="mEnabled" class="pf-v5-c-check__input">
-									<label class="pf-v5-c-check__label" for="mEnabled" data-i18n="monitor_enabled">Enable auto-check</label>
-								</div>
-								<div class="pf-v5-c-input-group pf-u-mt-sm">
-									<span class="pf-v5-c-input-group__text" data-i18n="monitor_interval">Check every</span>
-									<input type="number" id="mInterval" class="pf-v5-c-form-control" style="width: 70px" min="30" value="60">
-									<span class="pf-v5-c-input-group__text" data-i18n="seconds">seconds</span>
-								</div>
-								<div class="pf-v5-c-form__helper-text" data-i18n="monitor_hint">Auto-disable on failure + notifications</div>
-							</div>
-						</div>
-					</form>
-				</div>
-			</div>
-
-			<!-- Application-Specific Cards -->
-			<div class="pf-v5-c-card pf-u-mb-md">
-				<div class="pf-v5-c-card__header">
-					<h2 class="pf-v5-c-card__title" data-i18n="applications">Application-Specific Settings</h2>
-				</div>
-				<div class="pf-v5-c-card__body">
-					<div id="appCards" class="pf-v5-l-grid pf-m-gutter">
-						<!-- APT Card -->
-						<div class="pf-v5-l-grid__item pf-m-6-col-on-lg pf-m-12-col-on-md">
-							<div class="pf-v5-c-card pf-m-compact" id="card-apt">
-								<div class="pf-v5-c-card__header">
-									<div class="pf-v5-c-card__header-main">
-										<h3 class="pf-v5-c-card__title" data-i18n="target_apt">APT Package Manager</h3>
-										<div class="pf-v5-c-card__subtitle" data-i18n="target_apt_hint">Config: /etc/apt/apt.conf.d/01proxy</div>
-									</div>
-									<div class="pf-v5-c-card__header-tools">
-										<span class="pf-v5-c-label pf-m-green" id="status-apt">● OK</span>
+						<div class="pf-v5-c-card__body">
+							<form class="pf-v5-c-form pf-m-horizontal">
+								<div class="pf-v5-c-form__group">
+									<label class="pf-v5-c-form__label" for="pType">
+										<span class="pf-v5-c-form__label-text" data-i18n="proxy_type">Proxy Type</span>
+									</label>
+									<div class="pf-v5-c-form__group-control">
+										<select id="pType" class="pf-v5-c-form-control">
+											<option value="http" data-i18n="type_http">HTTP</option>
+											<option value="https" data-i18n="type_https">HTTPS</option>
+											<option value="socks5" data-i18n="type_socks5">SOCKS5</option>
+										</select>
 									</div>
 								</div>
-								<div class="pf-v5-c-card__body">
-									<div class="pf-v5-c-check pf-u-mb-sm">
-										<input type="checkbox" id="tApt" class="pf-v5-c-check__input">
-										<label class="pf-v5-c-check__label" for="tApt" data-i18n="proxy_enabled">Enable for APT</label>
-									</div>
-									<button type="button" id="btnApplyApt" class="pf-v5-c-button pf-m-primary pf-m-sm" data-i18n="apply_apt">Apply to APT</button>
-									<button type="button" id="btnDisableApt" class="pf-v5-c-button pf-m-link pf-m-sm pf-m-danger" data-i18n="btn_disable">Disable</button>
-								</div>
-							</div>
-						</div>
 
-						<!-- PackageKit Card -->
-						<div class="pf-v5-l-grid__item pf-m-6-col-on-lg pf-m-12-col-on-md">
-							<div class="pf-v5-c-card pf-m-compact" id="card-packagekit">
-								<div class="pf-v5-c-card__header">
-									<div class="pf-v5-c-card__header-main">
-										<h3 class="pf-v5-c-card__title" data-i18n="target_packagekit">Cockpit PackageKit</h3>
-										<div class="pf-v5-c-card__subtitle" data-i18n="target_packagekit_hint">Built-in Cockpit updates module</div>
+								<div class="formRow">
+									<div class="pf-v5-c-form__group">
+										<label class="pf-v5-c-form__label" for="pHost">
+											<span class="pf-v5-c-form__label-text" data-i18n="proxy_host">Proxy Host</span>
+										</label>
+										<div class="pf-v5-c-form__group-control">
+											<input type="text" id="pHost" class="pf-v5-c-form-control" data-i18n-placeholder="proxy_host">
+											<div class="pf-v5-c-form__helper-text" data-i18n="proxy_host_hint">Hostname or IP</div>
+										</div>
 									</div>
-									<div class="pf-v5-c-card__header-tools">
-										<span class="pf-v5-c-label pf-m-green" id="status-packagekit">● OK</span>
+									<div class="pf-v5-c-form__group">
+										<label class="pf-v5-c-form__label" for="pPort">
+											<span class="pf-v5-c-form__label-text" data-i18n="proxy_port">Proxy Port</span>
+										</label>
+										<div class="pf-v5-c-form__group-control">
+											<input type="number" id="pPort" class="pf-v5-c-form-control" min="1" max="65535" data-i18n-placeholder="proxy_port">
+											<div class="pf-v5-c-form__helper-text" data-i18n="proxy_port_hint">e.g., 3128 or 1080</div>
+										</div>
 									</div>
 								</div>
-								<div class="pf-v5-c-card__body">
-									<div class="pf-v5-c-check pf-u-mb-sm">
-										<input type="checkbox" id="tPkg" class="pf-v5-c-check__input">
-										<label class="pf-v5-c-check__label" for="tPkg" data-i18n="proxy_enabled">Enable for PackageKit</label>
-									</div>
-									<button type="button" id="btnApplyPkg" class="pf-v5-c-button pf-m-primary pf-m-sm" data-i18n="apply_packagekit">Apply to PackageKit</button>
-									<button type="button" id="btnDisablePkg" class="pf-v5-c-button pf-m-link pf-m-sm pf-m-danger" data-i18n="btn_disable">Disable</button>
-								</div>
-							</div>
-						</div>
 
-						<!-- curl Card -->
-						<div class="pf-v5-l-grid__item pf-m-6-col-on-lg pf-m-12-col-on-md">
-							<div class="pf-v5-c-card pf-m-compact" id="card-curl">
-								<div class="pf-v5-c-card__header">
-									<div class="pf-v5-c-card__header-main">
-										<h3 class="pf-v5-c-card__title" data-i18n="target_curl">curl (global config)</h3>
-										<div class="pf-v5-c-card__subtitle" data-i18n="target_curl_hint">Config: /etc/curlrc</div>
+								<div class="formRow">
+									<div class="pf-v5-c-form__group">
+										<label class="pf-v5-c-form__label" for="pUser">
+											<span class="pf-v5-c-form__label-text" data-i18n="proxy_username">Username</span>
+										</label>
+										<div class="pf-v5-c-form__group-control">
+											<input type="text" id="pUser" class="pf-v5-c-form-control" data-i18n-placeholder="proxy_username">
+											<div class="pf-v5-c-form__helper-text" data-i18n="proxy_username_hint">Optional</div>
+										</div>
 									</div>
-									<div class="pf-v5-c-card__header-tools">
-										<span class="pf-v5-c-label pf-m-green" id="status-curl">● OK</span>
+									<div class="pf-v5-c-form__group">
+										<label class="pf-v5-c-form__label" for="pPass">
+											<span class="pf-v5-c-form__label-text" data-i18n="proxy_password">Password</span>
+										</label>
+										<div class="pf-v5-c-form__group-control">
+											<input type="password" id="pPass" class="pf-v5-c-form-control" data-i18n-placeholder="proxy_password">
+											<div class="pf-v5-c-form__helper-text" data-i18n="proxy_password_hint">Stored encrypted</div>
+										</div>
 									</div>
 								</div>
-								<div class="pf-v5-c-card__body">
-									<div class="pf-v5-c-check pf-u-mb-sm">
-										<input type="checkbox" id="tCurl" class="pf-v5-c-check__input">
-										<label class="pf-v5-c-check__label" for="tCurl" data-i18n="proxy_enabled">Enable for curl</label>
-									</div>
-									<button type="button" id="btnApplyCurl" class="pf-v5-c-button pf-m-primary pf-m-sm" data-i18n="apply_curl">Apply to curl</button>
-									<button type="button" id="btnDisableCurl" class="pf-v5-c-button pf-m-link pf-m-sm pf-m-danger" data-i18n="btn_disable">Disable</button>
-								</div>
-							</div>
-						</div>
 
-						<!-- System Card -->
-						<div class="pf-v5-l-grid__item pf-m-6-col-on-lg pf-m-12-col-on-md">
-							<div class="pf-v5-c-card pf-m-compact" id="card-system">
-								<div class="pf-v5-c-card__header">
-									<div class="pf-v5-c-card__header-main">
-										<h3 class="pf-v5-c-card__title" data-i18n="target_system">System-wide (/etc/environment)</h3>
-										<div class="pf-v5-c-card__subtitle" data-i18n="target_system_hint">All apps using env vars</div>
-									</div>
-									<div class="pf-v5-c-card__header-tools">
-										<span class="pf-v5-c-label pf-m-green" id="status-system">● OK</span>
+								<div class="pf-v5-c-form__group">
+									<label class="pf-v5-c-form__label" for="pNoProxy">
+										<span class="pf-v5-c-form__label-text" data-i18n="bypass_list">Bypass List (DIRECT)</span>
+									</label>
+									<div class="pf-v5-c-form__group-control">
+										<textarea id="pNoProxy" class="pf-v5-c-form-control" rows="2" data-i18n-placeholder="bypass_list"></textarea>
+										<div class="pf-v5-c-form__helper-text" data-i18n="bypass_list_hint">Comma-separated hosts/subnets</div>
 									</div>
 								</div>
-								<div class="pf-v5-c-card__body">
-									<div class="pf-v5-c-check pf-u-mb-sm">
-										<input type="checkbox" id="tSys" class="pf-v5-c-check__input">
-										<label class="pf-v5-c-check__label" for="tSys" data-i18n="proxy_enabled">Enable system-wide</label>
+
+								<div class="pf-v5-c-form__group">
+									<label class="pf-v5-c-form__label">
+										<span class="pf-v5-c-form__label-text" data-i18n="check_urls">Connectivity Check URLs</span>
+									</label>
+									<div class="pf-v5-c-form__group-control">
+										<div class="pf-v5-c-input-group">
+											<input type="text" id="newUrl" class="pf-v5-c-form-control" placeholder="http://.../generate_204">
+											<button type="button" id="addUrlBtn" class="pf-v5-c-button pf-m-control" data-i18n="add_url">+ Add</button>
+										</div>
+										<div id="urlList" class="urlList pf-u-mt-sm"></div>
+										<div class="pf-v5-c-form__helper-text" data-i18n="check_urls_hint">HTTP 204 endpoints</div>
 									</div>
-									<button type="button" id="btnApplySys" class="pf-v5-c-button pf-m-primary pf-m-sm" data-i18n="apply_system">Apply to System</button>
-									<button type="button" id="btnDisableSys" class="pf-v5-c-button pf-m-link pf-m-sm pf-m-danger" data-i18n="btn_disable">Disable</button>
+								</div>
+
+								<div class="pf-v5-c-form__group">
+									<label class="pf-v5-c-form__label">
+										<span class="pf-v5-c-form__label-text" data-i18n="monitoring">Health Monitoring</span>
+									</label>
+									<div class="pf-v5-c-form__group-control">
+										<div class="pf-v5-c-check">
+											<input type="checkbox" id="mEnabled" class="pf-v5-c-check__input">
+											<label class="pf-v5-c-check__label" for="mEnabled" data-i18n="monitor_enabled">Enable auto-check</label>
+										</div>
+										<div class="pf-v5-c-input-group pf-u-mt-sm">
+											<span class="pf-v5-c-input-group__text" data-i18n="monitor_interval">Check every</span>
+											<input type="number" id="mInterval" class="pf-v5-c-form-control" style="width:70px" min="30" value="60">
+											<span class="pf-v5-c-input-group__text" data-i18n="seconds">seconds</span>
+										</div>
+										<div class="pf-v5-c-form__helper-text" data-i18n="monitor_hint">Auto-disable on failure</div>
+									</div>
+								</div>
+							</form>
+						</div>
+					</div>
+
+					<!-- Application Cards Grid -->
+					<div class="pf-v5-c-card">
+						<div class="pf-v5-c-card__header">
+							<h2 class="pf-v5-c-card__title" data-i18n="applications">Application-Specific Settings</h2>
+						</div>
+						<div class="pf-v5-c-card__body">
+							<div id="appCards" class="appGrid">
+								<!-- APT Card -->
+								<div class="pf-v5-c-card appCard" id="card-apt">
+									<div class="pf-v5-c-card__header">
+										<div class="pf-v5-c-card__header-main">
+											<h3 class="pf-v5-c-card__title" data-i18n="target_apt">APT Package Manager</h3>
+											<div class="pf-v5-c-card__subtitle" data-i18n="target_apt_hint">Config: /etc/apt/apt.conf.d/01proxy</div>
+										</div>
+										<div class="pf-v5-c-card__header-tools">
+											<span class="pf-v5-c-label pf-m-green statusBadge" id="status-apt">● OK</span>
+										</div>
+									</div>
+									<div class="pf-v5-c-card__body">
+										<div class="pf-v5-c-check pf-u-mb-sm">
+											<input type="checkbox" id="tApt" class="pf-v5-c-check__input">
+											<label class="pf-v5-c-check__label" for="tApt" data-i18n="proxy_enabled">Enable for APT</label>
+										</div>
+										<div class="formRow">
+											<input type="text" id="aptHost" class="pf-v5-c-form-control" placeholder="Host" data-i18n-placeholder="proxy_host">
+											<input type="number" id="aptPort" class="pf-v5-c-form-control" placeholder="Port" min="1" max="65535" data-i18n-placeholder="proxy_port">
+										</div>
+										<div class="formRow">
+											<input type="text" id="aptUser" class="pf-v5-c-form-control" placeholder="User" data-i18n-placeholder="proxy_username">
+											<input type="password" id="aptPass" class="pf-v5-c-form-control" placeholder="Pass" data-i18n-placeholder="proxy_password">
+										</div>
+										<div class="toolbar">
+											<button type="button" id="btnApplyApt" class="pf-v5-c-button pf-m-primary pf-m-sm" data-i18n="apply_apt">Apply to APT</button>
+											<button type="button" id="btnDisableApt" class="pf-v5-c-button pf-m-link pf-m-sm pf-m-danger">Disable</button>
+										</div>
+									</div>
+								</div>
+
+								<!-- PackageKit Card -->
+								<div class="pf-v5-c-card appCard" id="card-packagekit">
+									<div class="pf-v5-c-card__header">
+										<div class="pf-v5-c-card__header-main">
+											<h3 class="pf-v5-c-card__title" data-i18n="target_packagekit">Cockpit PackageKit</h3>
+											<div class="pf-v5-c-card__subtitle" data-i18n="target_packagekit_hint">Built-in Cockpit updates</div>
+										</div>
+										<div class="pf-v5-c-card__header-tools">
+											<span class="pf-v5-c-label pf-m-green statusBadge" id="status-packagekit">● OK</span>
+										</div>
+									</div>
+									<div class="pf-v5-c-card__body">
+										<div class="pf-v5-c-check pf-u-mb-sm">
+											<input type="checkbox" id="tPkg" class="pf-v5-c-check__input">
+											<label class="pf-v5-c-check__label" for="tPkg" data-i18n="proxy_enabled">Enable for PackageKit</label>
+										</div>
+										<div class="formRow">
+											<input type="text" id="pkgHost" class="pf-v5-c-form-control" placeholder="Host" data-i18n-placeholder="proxy_host">
+											<input type="number" id="pkgPort" class="pf-v5-c-form-control" placeholder="Port" min="1" max="65535" data-i18n-placeholder="proxy_port">
+										</div>
+										<div class="formRow">
+											<input type="text" id="pkgUser" class="pf-v5-c-form-control" placeholder="User" data-i18n-placeholder="proxy_username">
+											<input type="password" id="pkgPass" class="pf-v5-c-form-control" placeholder="Pass" data-i18n-placeholder="proxy_password">
+										</div>
+										<div class="toolbar">
+											<button type="button" id="btnApplyPkg" class="pf-v5-c-button pf-m-primary pf-m-sm" data-i18n="apply_packagekit">Apply to PackageKit</button>
+											<button type="button" id="btnDisablePkg" class="pf-v5-c-button pf-m-link pf-m-sm pf-m-danger">Disable</button>
+										</div>
+									</div>
+								</div>
+
+								<!-- curl Card -->
+								<div class="pf-v5-c-card appCard" id="card-curl">
+									<div class="pf-v5-c-card__header">
+										<div class="pf-v5-c-card__header-main">
+											<h3 class="pf-v5-c-card__title" data-i18n="target_curl">curl (global config)</h3>
+											<div class="pf-v5-c-card__subtitle" data-i18n="target_curl_hint">Config: /etc/curlrc</div>
+										</div>
+										<div class="pf-v5-c-card__header-tools">
+											<span class="pf-v5-c-label pf-m-green statusBadge" id="status-curl">● OK</span>
+										</div>
+									</div>
+									<div class="pf-v5-c-card__body">
+										<div class="pf-v5-c-check pf-u-mb-sm">
+											<input type="checkbox" id="tCurl" class="pf-v5-c-check__input">
+											<label class="pf-v5-c-check__label" for="tCurl" data-i18n="proxy_enabled">Enable for curl</label>
+										</div>
+										<div class="formRow">
+											<input type="text" id="curlHost" class="pf-v5-c-form-control" placeholder="Host" data-i18n-placeholder="proxy_host">
+											<input type="number" id="curlPort" class="pf-v5-c-form-control" placeholder="Port" min="1" max="65535" data-i18n-placeholder="proxy_port">
+										</div>
+										<div class="formRow">
+											<input type="text" id="curlUser" class="pf-v5-c-form-control" placeholder="User" data-i18n-placeholder="proxy_username">
+											<input type="password" id="curlPass" class="pf-v5-c-form-control" placeholder="Pass" data-i18n-placeholder="proxy_password">
+										</div>
+										<div class="toolbar">
+											<button type="button" id="btnApplyCurl" class="pf-v5-c-button pf-m-primary pf-m-sm" data-i18n="apply_curl">Apply to curl</button>
+											<button type="button" id="btnDisableCurl" class="pf-v5-c-button pf-m-link pf-m-sm pf-m-danger">Disable</button>
+										</div>
+									</div>
+								</div>
+
+								<!-- System Card -->
+								<div class="pf-v5-c-card appCard" id="card-system">
+									<div class="pf-v5-c-card__header">
+										<div class="pf-v5-c-card__header-main">
+											<h3 class="pf-v5-c-card__title" data-i18n="target_system">System-wide (/etc/environment)</h3>
+											<div class="pf-v5-c-card__subtitle" data-i18n="target_system_hint">All apps using env vars</div>
+										</div>
+										<div class="pf-v5-c-card__header-tools">
+											<span class="pf-v5-c-label pf-m-green statusBadge" id="status-system">● OK</span>
+										</div>
+									</div>
+									<div class="pf-v5-c-card__body">
+										<div class="pf-v5-c-check pf-u-mb-sm">
+											<input type="checkbox" id="tSys" class="pf-v5-c-check__input">
+											<label class="pf-v5-c-check__label" for="tSys" data-i18n="proxy_enabled">Enable system-wide</label>
+										</div>
+										<div class="formRow">
+											<input type="text" id="sysHost" class="pf-v5-c-form-control" placeholder="Host" data-i18n-placeholder="proxy_host">
+											<input type="number" id="sysPort" class="pf-v5-c-form-control" placeholder="Port" min="1" max="65535" data-i18n-placeholder="proxy_port">
+										</div>
+										<div class="formRow">
+											<input type="text" id="sysUser" class="pf-v5-c-form-control" placeholder="User" data-i18n-placeholder="proxy_username">
+											<input type="password" id="sysPass" class="pf-v5-c-form-control" placeholder="Pass" data-i18n-placeholder="proxy_password">
+										</div>
+										<div class="toolbar">
+											<button type="button" id="btnApplySys" class="pf-v5-c-button pf-m-primary pf-m-sm" data-i18n="apply_system">Apply to System</button>
+											<button type="button" id="btnDisableSys" class="pf-v5-c-button pf-m-link pf-m-sm pf-m-danger">Disable</button>
+										</div>
+									</div>
 								</div>
 							</div>
 						</div>
 					</div>
-				</div>
-			</div>
 
-			<!-- Action Toolbar -->
-			<div class="pf-v5-c-toolbar pf-m-page-insets pf-u-mb-md">
-				<div class="pf-v5-c-toolbar__content">
-					<button type="button" id="btnResync" class="pf-v5-c-button pf-m-control pf-m-secondary" data-i18n="btn_resync">↻ Resync</button>
-					<button type="button" id="btnTest" class="pf-v5-c-button pf-m-primary" data-i18n="btn_test">🧪 Test All</button>
-					<button type="button" id="btnApplyAll" class="pf-v5-c-button pf-m-secondary" data-i18n="btn_apply_all">💾 Apply Selected</button>
-					<button type="button" id="btnDisableAll" class="pf-v5-c-button pf-m-link pf-m-danger" data-i18n="btn_disable_all">🔌 Disable All</button>
-				</div>
-			</div>
-			<div class="pf-v5-c-helper-text pf-u-mb-md">
-				<div class="pf-v5-c-helper-text__item pf-m-info" data-i18n="hint_refresh">💡 After applying, refresh package lists in Software Updates / cockpit-apt.</div>
-			</div>
+					<!-- Global Actions Toolbar -->
+					<div class="toolbar pf-u-mt-md">
+						<button type="button" id="btnResync" class="pf-v5-c-button pf-m-control pf-m-secondary" data-i18n="btn_resync">↻ Resync</button>
+						<button type="button" id="btnTest" class="pf-v5-c-button pf-m-primary" data-i18n="btn_test">🧪 Test All</button>
+						<button type="button" id="btnApplyAll" class="pf-v5-c-button pf-m-secondary" data-i18n="btn_apply_all">💾 Apply Selected</button>
+						<button type="button" id="btnDisableAll" class="pf-v5-c-button pf-m-link pf-m-danger" data-i18n="btn_disable_all">🔌 Disable All</button>
+					</div>
+					<div class="pf-v5-c-helper-text pf-u-mt-sm">
+						<div class="pf-v5-c-helper-text__item pf-m-info" data-i18n="hint_refresh">💡 After applying, refresh package lists in Software Updates.</div>
+					</div>
 
-			<!-- Status Alert -->
-			<div id="statusBar" class="pf-v5-c-alert pf-m-inline pf-u-mb-md" style="display:none">
-				<div class="pf-v5-c-alert__icon">📋</div>
-				<h4 class="pf-v5-c-alert__title" data-i18n="status_title">Status</h4>
-				<div class="pf-v5-c-alert__description" id="statusText"></div>
-			</div>
-
-			<!-- Logs Box (scrollable, bordered) -->
-			<div class="pf-v5-c-card">
-				<div class="pf-v5-c-card__header">
-					<h3 class="pf-v5-c-card__title" data-i18n="log_title">Module Logs</h3>
+					<!-- Status Alert -->
+					<div id="statusBar" class="pf-v5-c-alert pf-m-inline pf-u-mt-md" style="display:none">
+						<div class="pf-v5-c-alert__icon">📋</div>
+						<h4 class="pf-v5-c-alert__title" data-i18n="status_title">Status</h4>
+						<div class="pf-v5-c-alert__description" id="statusText"></div>
+					</div>
 				</div>
-				<div class="pf-v5-c-card__body">
-					<pre id="logArea" class="pf-v5-c-code-block pf-m-compact pf-u-p-sm" style="max-height: 200px; overflow-y: auto; background: var(--pf-v5-global--BackgroundColor--200); border-radius: var(--pf-v5-global--BorderRadius--sm);"></pre>
+
+				<!-- Draggable Divider -->
+				<div id="divider" title="Drag to resize"></div>
+
+				<!-- Log Pane (bottom 25%) -->
+				<div id="logPane">
+					<div class="pf-v5-c-card__header pf-u-px-md pf-u-py-sm">
+						<h3 class="pf-v5-c-card__title pf-u-font-size-md" data-i18n="log_title">Module Logs</h3>
+					</div>
+					<pre id="logArea" class="pf-u-px-md"></pre>
 				</div>
 			</div>
 		</section>
