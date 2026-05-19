@@ -3,7 +3,6 @@
 <head>
 	<title data-i18n="title">Proxy Manager</title>
 	<meta charset="utf-8">
-	<!-- Cockpit автоматически подключает base1/cockpit.css и PatternFly -->
 	<script src="../base1/cockpit.js"></script>
 	<link href="proxy.css" type="text/css" rel="stylesheet">
 </head>
@@ -17,7 +16,7 @@
 
 			<!-- Split-pane container -->
 			<div id="mainContainer">
-				<!-- Settings Pane (top 75%) -->
+				<!-- Settings Pane -->
 				<div id="settingsPane">
 					<!-- Global Settings Card -->
 					<div class="pf-v5-c-card pf-u-mb-md">
@@ -169,7 +168,7 @@
 									<div class="pf-v5-c-card__header">
 										<div class="pf-v5-c-card__header-main">
 											<h3 class="pf-v5-c-card__title" data-i18n="target_packagekit">Cockpit PackageKit</h3>
-											<div class="pf-v5-c-card__subtitle" data-i18n="target_packagekit_hint">Built-in Cockpit updates</div>
+											<div class="pf-v5-c-card__subtitle" data-i18n="target_packagekit_hint">Uses /etc/environment variables</div>
 										</div>
 										<div class="pf-v5-c-card__header-tools">
 											<span class="pf-v5-c-label pf-m-green statusBadge" id="status-packagekit">● OK</span>
@@ -191,6 +190,10 @@
 										<div class="toolbar">
 											<button type="button" id="btnApplyPkg" class="pf-v5-c-button pf-m-primary pf-m-sm" data-i18n="apply_packagekit">Apply to PackageKit</button>
 											<button type="button" id="btnDisablePkg" class="pf-v5-c-button pf-m-link pf-m-sm pf-m-danger">Disable</button>
+										</div>
+										<!-- PackageKit-specific hint -->
+										<div class="pf-v5-c-helper-text pf-u-mt-sm">
+											<div class="pf-v5-c-helper-text__item pf-m-info" data-i18n="hint_packagekit">💡 After applying, refresh package lists in Software Updates.</div>
 										</div>
 									</div>
 								</div>
@@ -267,9 +270,6 @@
 						<button type="button" id="btnApplyAll" class="pf-v5-c-button pf-m-secondary" data-i18n="btn_apply_all">💾 Apply Selected</button>
 						<button type="button" id="btnDisableAll" class="pf-v5-c-button pf-m-link pf-m-danger" data-i18n="btn_disable_all">🔌 Disable All</button>
 					</div>
-					<div class="pf-v5-c-helper-text pf-u-mt-sm">
-						<div class="pf-v5-c-helper-text__item pf-m-info" data-i18n="hint_refresh">💡 After applying, refresh package lists in Software Updates.</div>
-					</div>
 
 					<!-- Status Alert -->
 					<div id="statusBar" class="pf-v5-c-alert pf-m-inline pf-u-mt-md" style="display:none">
@@ -282,7 +282,7 @@
 				<!-- Draggable Divider -->
 				<div id="divider" title="Drag to resize"></div>
 
-				<!-- Log Pane (bottom 25%) -->
+				<!-- Log Pane -->
 				<div id="logPane">
 					<div class="pf-v5-c-card__header pf-u-px-md pf-u-py-sm">
 						<h3 class="pf-v5-c-card__title pf-u-font-size-md" data-i18n="log_title">Module Logs</h3>
