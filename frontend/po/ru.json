@@ -24,10 +24,14 @@
 	"btn_test": "🧪 Проверить подключение",
 	"btn_apply": "💾 Применить настройки",
 	"btn_disable": "🔌 Отключить прокси",
+	"btn_resync": "↻ Синхронизировать с системой",
 	"status_title": "Статус",
 	"log_title": "Логи модуля",
 	"type_http": "HTTP",
 	"type_https": "HTTPS",
 	"type_socks5": "SOCKS5",
-	"hint_refresh": "💡 После применения обновите список пакетов в Software Updates / cockpit-apt."
+	"hint_refresh": "💡 После применения обновите список пакетов в Software Updates / cockpit-apt.",
+	"drift_detected": "⚠️ Обнаружены внешние изменения в системных файлах. Интерфейс обновлён.",
+	"resync_success": "Конфигурация успешно синхронизирована с системой.",
+	"resync_no_change": "Внешних изменений не обнаружено. Конфигурация совпадает."
 }
