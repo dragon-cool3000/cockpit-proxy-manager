@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title data-i18n="title">Advanced Proxy Manager</title>
+	<meta charset="utf-8">
+	<link href="../base1/cockpit.css" type="text/css" rel="stylesheet">
+	<script src="../base1/cockpit.js"></script>
+	<style>
+		.proxy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+		.url-list { max-height: 150px; overflow-y: auto; border: 1px solid var(--pf-v5-global--BorderColor--100); padding: 0.5rem; }
+		.url-item { display: flex; justify-content: space-between; padding: 0.25rem 0; }
+		.log-box { height: 120px; overflow-y: auto; background: #111; color: #0f0; font-family: monospace; font-size: 0.8rem; padding: 0.5rem; border: 1px solid #444; margin-top: 1rem; }
+		.disabled-row { opacity: 0.5; pointer-events: none; }
+	</style>
+</head>
+<body>
+	<main class="pf-v5-c-page__main">
+		<section class="pf-v5-c-page__main-section pf-m-light">
+			<h1 data-i18n="title">Advanced Proxy Manager</h1>
+			
+			<div class="pf-v5-c-form">
+				<div class="proxy-grid">
+					<div class="pf-v5-c-form__group">
+						<label class="pf-v5-c-form__label"><span class="pf-v5-c-form__label-text" data-i18n="type">Proxy Type</span></label>
+						<select id="pType" class="pf-v5-c-form-control">
+							<option value="http" data-i18n="type_http">HTTP</option>
+							<option value="https" data-i18n="type_https">HTTPS</option>
+							<option value="socks5" data-i18n="type_socks5">SOCKS5</option>
+						</select>
+					</div>
+					<div class="pf-v5-c-form__group">
+						<label class="pf-v5-c-form__label"><span class="pf-v5-c-form__label-text" data-i18n="enabled">Enable Proxy</span></label>
+						<input type="checkbox" id="pEnabled" class="pf-v5-c-switch">
+						<label for="pEnabled" class="pf-v5-c-switch__label" data-i18n="enabled">Enable Proxy</label>
+					</div>
+				</div>
+
+				<div class="proxy-grid">
+					<div class="pf-v5-c-form__group"><label class="pf-v5-c-form__label"><span class="pf-v5-c-form__label-text" data-i18n="host">Proxy Host</span></label><input id="pHost" class="pf-v5-c-form-control" data-i18n-placeholder="host"></div>
+					<div class="pf-v5-c-form__group"><label class="pf-v5-c-form__label"><span class="pf-v5-c-form__label-text" data-i18n="port">Proxy Port</span></label><input id="pPort" type="number" class="pf-v5-c-form-control" data-i18n-placeholder="port"></div>
+					<div class="pf-v5-c-form__group"><label class="pf-v5-c-form__label"><span class="pf-v5-c-form__label-text" data-i18n="username">Username</span></label><input id="pUser" class="pf-v5-c-form-control" data-i18n-placeholder="username"></div>
+					<div class="pf-v5-c-form__group"><label class="pf-v5-c-form__label"><span class="pf-v5-c-form__label-text" data-i18n="password">Password</span></label><input id="pPass" type="password" class="pf-v5-c-form-control" data-i18n-placeholder="password"></div>
+				</div>
+
+				<div class="pf-v5-c-form__group">
+					<label class="pf-v5-c-form__label"><span class="pf-v5-c-form__label-text" data-i18n="no_proxy">Bypass List (DIRECT)</span></label>
+					<textarea id="pNoProxy" class="pf-v5-c-form-control" rows="2" data-i18n-placeholder="no_proxy"></textarea>
+					<small data-i18n="no_proxy_hint">Comma-separated: local subnets and hosts that bypass the proxy.</small>
+				</div>
+
+				<div class="pf-v5-c-form__group">
+					<label class="pf-v5-c-form__label"><span class="pf-v5-c-form__label-text" data-i18n="check_urls">Connectivity Check URLs</span></label>
+					<div class="url-list" id="urlList"></div>
+					<div style="margin-top:0.5rem">
+						<input id="newUrl" class="pf-v5-c-form-control" style="width:70%; display:inline" placeholder="http://.../generate_204" data-i18n-placeholder="add_url">
+						<button id="addUrlBtn" class="pf-v5-c-button pf-m-secondary" data-i18n="add_url">+ Add</button>
+					</div>
+					<small data-i18n="check_urls_hint">Endpoints returning HTTP 204. At least one must succeed.</small>
+				</div>
+
+				<div class="pf-v5-c-form__group">
+					<label class="pf-v5-c-form__label"><span class="pf-v5-c-form__label-text" data-i18n="targets">Apply To</span></label>
+					<div style="display:flex; gap:1rem">
+						<label id="tAptRow"><input type="checkbox" id="tApt"> <span data-i18n="target_apt">APT</span></label>
+						<label id="tPkgRow"><input type="checkbox" id="tPkg"> <span data-i18n="target_packagekit">PackageKit</span></label>
+						<label id="tCurlRow"><input type="checkbox" id="tCurl"> <span data-i18n="target_curl">curl</span></label>
+						<label><input type="checkbox" id="tSys"> <span data-i18n="target_system">System-wide</span></label>
+					</div>
+					<small id="pkgWarning" style="color: var(--pf-v5-global--warning-color--100); display:none;" data-i18n="pkg_warning">⚠️ Some packages are not installed. Settings for them are disabled.</small>
+				</div>
+
+				<div class="pf-v5-c-form__group">
+					<label class="pf-v5-c-form__label"><span class="pf-v5-c-form__label-text" data-i18n="monitoring">Health Monitoring</span></label>
+					<div style="display:flex; align-items:center; gap:1rem">
+						<label><input type="checkbox" id="mEnabled"> <span data-i18n="monitor_interval">Check every</span></label>
+						<input id="mInterval" type="number" style="width:60px" min="30"> <span data-i18n="seconds">seconds</span>
+					</div>
+					<small data-i18n="monitor_hint">If check fails, proxy is auto-disabled and a notification is sent.</small>
+				</div>
+			</div>
+
+			<div class="pf-v5-c-toolbar pf-m-page-insets" style="margin-top:1rem">
+				<button id="btnTest" class="pf-v5-c-button pf-m-primary" data-i18n="btn_test">🧪 Test Connection</button>
+				<button id="btnApply" class="pf-v5-c-button pf-m-secondary" data-i18n="btn_apply">💾 Apply Settings</button>
+				<button id="btnDisable" class="pf-v5-c-button pf-m-link pf-m-danger" data-i18n="btn_disable">🔌 Disable Proxy</button>
+			</div>
+
+			<div id="statusBar" class="pf-v5-c-alert pf-m-inline pf-m-info" style="display:none; margin-top:1rem">
+				<div class="pf-v5-c-alert__icon">📋</div>
+				<h4 class="pf-v5-c-alert__title" data-i18n="status_title">Status</h4>
+				<div class="pf-v5-c-alert__description" id="statusText"></div>
+			</div>
+
+			<div id="logArea" class="log-box" data-i18n-title="log_title">Module Logs</div>
+		</section>
+	</main>
+	<script src="proxy.js"></script>
+</body>
+</html>
