@@ -1,0 +1,20 @@
+{
+	"version": 1,
+	"requires": {
+		"cockpit": "240"
+	},
+	"tools": {
+		"proxy-manager": {
+			"label": "Advanced Proxy Manager",
+			"path": "proxy.html",
+			"keywords": [
+				{"matches": ["proxy", "apt", "curl", "monitor", "network"]}
+			]
+		}
+	},
+	"bridges": [{
+		"match": {"payload": "proxy-manager"},
+		"spawn": ["/usr/local/libexec/cockpit-proxy-manager"],
+		"privileged": true
+	}]
+}
