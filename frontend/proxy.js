@@ -79,6 +79,32 @@
 		});
 	}
 
+	function populateUI(c) {
+		E("pType").value = c.type || "http";
+		E("pEnabled").checked = !!c.enabled;
+		E("pHost").value = c.host || "";
+		E("pPort").value = c.port || 3128;
+		E("pUser").value = c.username || "";
+		E("pPass").value = c.password || "";
+		E("pNoProxy").value = c.no_proxy || "";
+		checkUrls = c.check_urls || []; renderUrls();
+		
+		const pkgs = c.packages || {};
+		if (!pkgs.packagekit) { E("tPkg").disabled = true; E("tPkg").parentElement.classList.add("disabled-row"); }
+		if (!pkgs.curl) { E("tCurl").disabled = true; E("tCurl").parentElement.classList.add("disabled-row"); }
+		
+		const missing = (!pkgs.packagekit || !pkgs.curl);
+		E("pkgWarning").style.display = missing ? "block" : "none";
+		if(missing) addLog("Some packages are not installed. Settings for them are disabled.", "error");
+		
+		E("tApt").checked = c.targets?.apt ?? true;
+		E("tPkg").checked = pkgs.packagekit ? (c.targets?.packagekit ?? true) : false;
+		E("tCurl").checked = pkgs.curl ? (c.targets?.curl ?? true) : false;
+		E("tSys").checked = c.targets?.system ?? true;
+		E("mEnabled").checked = !!c.monitor_enabled;
+		E("mInterval").value = c.monitor_interval || 60;
+	}
+
 	function load(){
 		const cockpitLang = cockpit.language?.split("-")[0] || "en";
 		const supportedLangs = ["en", "ru"];
@@ -87,31 +113,7 @@
 		loadTranslations(lang).then(() => {
 			channel = cockpit.channel({payload:"proxy-manager", command:"get-config"});
 			channel.addEventListener("message", (ev, data)=>{
-				const c = JSON.parse(data);
-				E("pType").value = c.type || "http";
-				E("pEnabled").checked = !!c.enabled;
-				E("pHost").value = c.host || "";
-				E("pPort").value = c.port || 3128;
-				E("pUser").value = c.username || "";
-				E("pPass").value = c.password || "";
-				E("pNoProxy").value = c.no_proxy || "";
-				checkUrls = c.check_urls || []; renderUrls();
-				
-				const pkgs = c.packages || {};
-				if (!pkgs.packagekit) { E("tPkg").disabled = true; E("tPkg").parentElement.classList.add("disabled-row"); }
-				if (!pkgs.curl) { E("tCurl").disabled = true; E("tCurl").parentElement.classList.add("disabled-row"); }
-				
-				const missing = (!pkgs.packagekit || !pkgs.curl);
-				E("pkgWarning").style.display = missing ? "block" : "none";
-				if(missing) addLog("Some packages are not installed. Settings for them are disabled.", "error");
-				
-				E("tApt").checked = c.targets?.apt ?? true;
-				E("tPkg").checked = pkgs.packagekit ? (c.targets?.packagekit ?? true) : false;
-				E("tCurl").checked = pkgs.curl ? (c.targets?.curl ?? true) : false;
-				E("tSys").checked = c.targets?.system ?? true;
-				E("mEnabled").checked = !!c.monitor_enabled;
-				E("mInterval").value = c.monitor_interval || 60;
-				
+				populateUI(JSON.parse(data));
 				addLog("Configuration loaded.");
 			});
 			channel.close();
@@ -147,6 +149,19 @@
 	E("btnTest").onclick = ()=> sendCmd("test-proxy", collect());
 	E("btnApply").onclick = ()=> sendCmd("apply-config", collect());
 	E("btnDisable").onclick = ()=> sendCmd("disable-proxy", null);
+	E("btnResync").onclick = ()=> {
+		channel = cockpit.channel({payload:"proxy-manager", command:"resync-config"});
+		channel.addEventListener("message", (ev, data)=>{
+			const c = JSON.parse(data);
+			populateUI(c);
+			if (c.drift_detected) {
+				show(t("drift_detected"), "warning");
+			} else {
+				show(t("resync_no_change"), "info");
+			}
+		});
+		channel.close();
+	};
 
 	E("addUrlBtn").onclick = ()=>{
 		const v = E("newUrl").value.trim();
