@@ -28,5 +28,6 @@
 	"log_title": "Module Logs",
 	"type_http": "HTTP",
 	"type_https": "HTTPS",
-	"type_socks5": "SOCKS5"
+	"type_socks5": "SOCKS5",
+	"hint_refresh": "💡 After applying, refresh package lists in Software Updates / cockpit-apt."
 }
