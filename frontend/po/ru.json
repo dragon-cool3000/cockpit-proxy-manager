@@ -28,5 +28,6 @@
 	"log_title": "Логи модуля",
 	"type_http": "HTTP",
 	"type_https": "HTTPS",
-	"type_socks5": "SOCKS5"
+	"type_socks5": "SOCKS5",
+	"hint_refresh": "💡 После применения обновите список пакетов в Software Updates / cockpit-apt."
 }
