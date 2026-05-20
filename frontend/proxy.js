@@ -236,45 +236,47 @@
 		const divider = $("divider");
 		const settings = $("settingsPane");
 		const log = $("logPane");
+		
 		if (!divider || !settings || !log) return;
-		
-		let dragging = false, startY, startH;
-		
-		divider.addEventListener("mousedown", e => {
-			dragging = true;
+
+		let isDragging = false;
+		let startY;
+		let startSettingsHeight;
+
+		// Начальная пропорция: 75% настройки, 25% логи
+		settings.style.flex = "3";
+		log.style.flex = "1";
+
+		divider.addEventListener("mousedown", function(e) {
+			isDragging = true;
 			startY = e.clientY;
-			startH = settings.offsetHeight;
+			startSettingsHeight = settings.offsetHeight;
+			
+			// Фиксируем ширину в пикселях перед началом драга, чтобы flex не прыгал
+			settings.style.flex = `0 0 ${startSettingsHeight}px`;
+			log.style.flex = "1"; // Остаток занимает лог
+			
 			document.body.style.cursor = "row-resize";
+			document.body.style.userSelect = "none";
 			e.preventDefault();
 		});
-		
-		document.addEventListener("mousemove", e => {
-			if (!dragging) return;
-			const containerH = $("mainContainer").offsetHeight;
-			const newH = Math.max(200, Math.min(containerH - 150, startH + (e.clientY - startY)));
-			settings.style.flex = `0 0 ${newH}px`;
-			log.style.flex = `0 0 ${containerH - newH - 12}px`;
+
+		document.addEventListener("mousemove", function(e) {
+			if (!isDragging) return;
+			
+			const delta = e.clientY - startY;
+			const newHeight = Math.max(150, startSettingsHeight + delta); // Минимум 150px
+			
+			settings.style.flex = `0 0 ${newHeight}px`;
 		});
-		
-		document.addEventListener("mouseup", () => {
-			if (dragging) {
-				dragging = false;
+
+		document.addEventListener("mouseup", function() {
+			if (isDragging) {
+				isDragging = false;
 				document.body.style.cursor = "";
-			}
-		});
-		
-		// Initial split: 75/25
-		const initH = window.innerHeight * 0.75;
-		settings.style.flex = `0 0 ${initH}px`;
-		log.style.flex = `0 0 ${window.innerHeight - initH - 12}px`;
-		
-		// Handle window resize
-		window.addEventListener("resize", () => {
-			const containerH = $("mainContainer").offsetHeight;
-			const settingsH = settings.offsetHeight;
-			const newLogH = containerH - settingsH - 12;
-			if (newLogH > 100) {
-				log.style.flex = `0 0 ${newLogH}px`;
+				document.body.style.userSelect = "";
+				// При отпускании можно вернуть flex: 1 для лога, чтобы он тянулся, 
+				// но чтобы сохранить позицию, оставляем жесткую высоту для настроек
 			}
 		});
 	}
