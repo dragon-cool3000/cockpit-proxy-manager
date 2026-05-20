@@ -11,7 +11,7 @@
 		<section class="pf-v5-c-page__main-section pf-m-light">
 			<div class="pf-v5-c-content pf-u-mb-md">
 				<h1 data-i18n="title">Proxy Manager</h1>
-				<p class="pf-v5-u-font-size-sm pf-v5-u-color-200" data-i18n="subtitle">Configure proxy settings for system and applications</p>
+				<p class="pf-v5-u-font-size-sm pf-v5-u-color-200" data-i18n="subtitle">Configure proxy settings</p>
 			</div>
 
 			<!-- Split-pane container -->
@@ -191,7 +191,6 @@
 											<button type="button" id="btnApplyPkg" class="pf-v5-c-button pf-m-primary pf-m-sm" data-i18n="apply_packagekit">Apply to PackageKit</button>
 											<button type="button" id="btnDisablePkg" class="pf-v5-c-button pf-m-link pf-m-sm pf-m-danger">Disable</button>
 										</div>
-										<!-- PackageKit-specific hint -->
 										<div class="pf-v5-c-helper-text pf-u-mt-sm">
 											<div class="pf-v5-c-helper-text__item pf-m-info" data-i18n="hint_packagekit">💡 After applying, refresh package lists in Software Updates.</div>
 										</div>
@@ -271,15 +270,15 @@
 						<button type="button" id="btnDisableAll" class="pf-v5-c-button pf-m-link pf-m-danger" data-i18n="btn_disable_all">🔌 Disable All</button>
 					</div>
 
-					<!-- Status Alert -->
-					<div id="statusBar" class="pf-v5-c-alert pf-m-inline pf-u-mt-md" style="display:none">
+					<!-- Status Alert (was inline style) -->
+					<div id="statusBar" class="status-bar">
 						<div class="pf-v5-c-alert__icon">📋</div>
 						<h4 class="pf-v5-c-alert__title" data-i18n="status_title">Status</h4>
 						<div class="pf-v5-c-alert__description" id="statusText"></div>
 					</div>
 				</div>
 
-				<!-- Draggable Divider -->
+				<!-- Draggable Divider (subtle) -->
 				<div id="divider" title="Drag to resize"></div>
 
 				<!-- Log Pane -->
@@ -287,7 +286,7 @@
 					<div class="pf-v5-c-card__header pf-u-px-md pf-u-py-sm">
 						<h3 class="pf-v5-c-card__title pf-u-font-size-md" data-i18n="log_title">Module Logs</h3>
 					</div>
-					<pre id="logArea" class="pf-u-px-md"></pre>
+					<pre id="logArea"></pre>
 				</div>
 			</div>
 		</section>
