@@ -57,7 +57,7 @@ html, body {
 }
 
 #divider::before {
-	content: "⋮";  /* Вертикальные точки */
+	content: "⋯";  /* ← это горизонтально */
 	font-size: 0.8rem;
 	color: #6a6e73;
 	letter-spacing: 2px;
