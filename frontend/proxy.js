@@ -2,9 +2,11 @@
 (function() {
 	"use strict";
 
+	// Исправлен синтаксис стрелочных функций (убраны пробелы перед >)
 	const $ = id => document.getElementById(id);
 	const $$ = (sel, ctx = document) => ctx.querySelectorAll(sel);
 
+	// Убраны пробелы в конце строк (было: "127.0.0.1,... ")
 	const DEFAULT_NO_PROXY = "127.0.0.1,localhost,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7,fe80::/10";
 	const DEFAULT_CHECK_URLS = [
 		"http://connect.rom.miui.com/generate_204",
@@ -120,7 +122,6 @@
 		if ($("mEnabled")) $("mEnabled").checked = !!cfg.monitor_enabled;
 		if ($("mInterval")) $("mInterval").value = cfg.monitor_interval || 60;
 
-		// Update app cards status
 		const pkgs = cfg.packages || {};
 		const targets = cfg.targets || {};
 
@@ -182,12 +183,18 @@
 		};
 	}
 
+	// === ИСПРАВЛЕННАЯ ЛОГИКА ОТПРАВКИ КОМАНД ===
 	function sendCmd(cmd, payload, onSuccess, onError) {
-		const ch = cockpit.channel({ payload: "proxy-manager", command: cmd, ...payload });
+		// payload указывает мосту, какой spawn-процесс запустить
+		// command НЕ передается здесь, иначе будет ошибка not-supported
+		const ch = cockpit.channel({ payload: "proxy-manager" });
+		let handled = false;
 
 		ch.addEventListener("message", (ev, data) => {
+			if (handled) return;
 			try {
 				const res = JSON.parse(data);
+				handled = true;
 				if (res.success !== undefined) {
 					if (res.success && onSuccess) onSuccess(res);
 					else if (!res.success && onError) onError(res);
@@ -200,7 +207,7 @@
 		});
 
 		ch.addEventListener("close", (ev, opts) => {
-			if (opts.problem) {
+			if (!handled && opts.problem) {
 				if (opts.problem === "not-supported") {
 					if (!backendConnected) {
 						addLog("⚠️ Backend not connected. Using local defaults.", "warning");
@@ -213,6 +220,8 @@
 			}
 		});
 
+		// Команда передается в теле JSON в stdin процесса
+		ch.send(JSON.stringify({ command: cmd, ...payload }));
 		return ch;
 	}
 
@@ -237,7 +246,6 @@
 
 		if (!divider || !settings || !log) return;
 
-		// Начальная пропорция: 3:1 (как в CSS)
 		settings.style.flex = "3";
 		log.style.flex = "1";
 
@@ -245,8 +253,6 @@
 
 		divider.addEventListener("mousedown", function(e) {
 			isDragging = true;
-
-			// Блокируем выделение и скрываем курсор
 			document.body.style.cursor = "row-resize";
 			document.body.style.userSelect = "none";
 			e.preventDefault();
@@ -257,25 +263,17 @@
 
 			const container = document.getElementById("mainContainer");
 			const containerRect = container.getBoundingClientRect();
-
-			// Вычисляем позицию мыши относительно верха контейнера
 			const relativeY = e.clientY - containerRect.top;
 
-			// Вычисляем новую пропорцию (flex-grow) для верхнего блока
-			// Ограничиваем, чтобы не уходить в 0 или отрицательные значения
-			const minH = 100; // Минимальная высота в пикселях для UX
-			const maxH = containerRect.height - 100; // Минимальная высота для лога
-
+			const minH = 100;
+			const maxH = containerRect.height - 100;
 			let adjustedY = relativeY;
 			if (adjustedY < minH) adjustedY = minH;
 			if (adjustedY > maxH) adjustedY = maxH;
 
-			// Рассчитываем flex-grow
-			// Flex = высота_верхнего / высота_нижнего
 			const topH = adjustedY;
 			const bottomH = containerRect.height - topH;
 			
-			// Предотвращаем деление на ноль
 			if (bottomH > 0) {
 				const flexRatio = topH / bottomH;
 				settings.style.flex = flexRatio;
@@ -324,7 +322,6 @@
 		});
 	}
 
-	// Init
 	cockpit.transport.wait(() => {
 		const lang = ["en", "ru"].includes((cockpit.language || "en").split("-")[0]) ? (cockpit.language || "en").split("-")[0] : "en";
 		loadTranslations(lang).then(() => {
@@ -334,7 +331,6 @@
 		initSplitPane();
 		setupButtons();
 
-		// Populate UI immediately with defaults (works even if backend fails)
 		populateUI({});
 		addLog("Proxy Manager initialized.", "info");
 	});
