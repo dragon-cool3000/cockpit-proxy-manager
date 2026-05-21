@@ -1,9 +1,9 @@
 /* global cockpit */
-(function(){
+(function() {
 	"use strict";
 
 	const $ = id => document.getElementById(id);
-	const $$ = (sel, ctx=document) => ctx.querySelectorAll(sel);
+	const $$ = (sel, ctx = document) => ctx.querySelectorAll(sel);
 
 	const DEFAULT_NO_PROXY = "127.0.0.1,localhost,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7,fe80::/10";
 	const DEFAULT_CHECK_URLS = [
@@ -58,7 +58,7 @@
 		});
 	}
 
-	function addLog(msg, type="info") {
+	function addLog(msg, type = "info") {
 		const log = $("logArea");
 		if (!log) return;
 		const time = new Date().toLocaleTimeString();
@@ -70,7 +70,7 @@
 		console.log(`[proxy.js] ${type.toUpperCase()}: ${msg}`);
 	}
 
-	function showStatus(msg, type="info") {
+	function showStatus(msg, type = "info") {
 		const bar = $("statusBar");
 		if (!bar) return;
 		bar.className = `status-bar pf-v5-c-alert pf-m-inline pf-m-${type}`;
@@ -91,24 +91,24 @@
 			const item = document.createElement("div");
 			item.className = "urlItem";
 			item.innerHTML = `<span>${url}</span><button type="button" class="pf-v5-c-button pf-m-plain pf-m-sm" data-idx="${i}">✕</button>`;
-			item.querySelector("button").onclick = () => { checkUrls.splice(i,1); renderUrls(); };
+			item.querySelector("button").onclick = () => { checkUrls.splice(i, 1); renderUrls(); };
 			list.appendChild(item);
 		});
 	}
 
 	function populateUI(cfg) {
 		cfg = cfg || {};
-		
+
 		if ($("pType")) $("pType").value = cfg.type || "http";
 		if ($("pHost")) $("pHost").value = cfg.host || "";
 		if ($("pPort")) $("pPort").value = cfg.port || 3128;
 		if ($("pUser")) $("pUser").value = cfg.username || "";
-		
+
 		if ($("pNoProxy")) {
 			const val = cfg.no_proxy;
 			$("pNoProxy").value = (val && val.trim()) ? val : DEFAULT_NO_PROXY;
 		}
-		
+
 		const urls = cfg.check_urls;
 		if (Array.isArray(urls) && urls.length > 0) {
 			checkUrls = [...urls];
@@ -116,17 +116,17 @@
 			checkUrls = [...DEFAULT_CHECK_URLS];
 		}
 		renderUrls();
-		
+
 		if ($("mEnabled")) $("mEnabled").checked = !!cfg.monitor_enabled;
 		if ($("mInterval")) $("mInterval").value = cfg.monitor_interval || 60;
-		
+
 		// Update app cards status
 		const pkgs = cfg.packages || {};
 		const targets = cfg.targets || {};
-		
+
 		if ($("tApt")) $("tApt").checked = !!targets.apt;
 		updateAppStatus("apt", (cfg.enabled && targets.apt) ? "ok" : "disabled");
-		
+
 		if (!pkgs.packagekit && $("tPkg")) {
 			$("tPkg").disabled = true;
 			$("tPkg").checked = false;
@@ -136,7 +136,7 @@
 			$("tPkg").checked = !!targets.packagekit;
 			updateAppStatus("packagekit", (cfg.enabled && targets.packagekit) ? "ok" : "disabled");
 		}
-		
+
 		if (!pkgs.curl && $("tCurl")) {
 			$("tCurl").disabled = true;
 			$("tCurl").checked = false;
@@ -146,10 +146,10 @@
 			$("tCurl").checked = !!targets.curl;
 			updateAppStatus("curl", (cfg.enabled && targets.curl) ? "ok" : "disabled");
 		}
-		
+
 		if ($("tSys")) $("tSys").checked = !!targets.system;
 		updateAppStatus("system", (cfg.enabled && targets.system) ? "ok" : "disabled");
-		
+
 		addLog("Configuration loaded.");
 	}
 
@@ -184,7 +184,7 @@
 
 	function sendCmd(cmd, payload, onSuccess, onError) {
 		const ch = cockpit.channel({ payload: "proxy-manager", command: cmd, ...payload });
-		
+
 		ch.addEventListener("message", (ev, data) => {
 			try {
 				const res = JSON.parse(data);
@@ -198,11 +198,10 @@
 				addLog(`Parse error: ${e}`, "error");
 			}
 		});
-		
+
 		ch.addEventListener("close", (ev, opts) => {
 			if (opts.problem) {
 				if (opts.problem === "not-supported") {
-					// Backend not available — but we still work with defaults
 					if (!backendConnected) {
 						addLog("⚠️ Backend not connected. Using local defaults.", "warning");
 						backendConnected = false;
@@ -213,7 +212,7 @@
 				if (onError) onError({ message: opts.problem });
 			}
 		});
-		
+
 		return ch;
 	}
 
@@ -224,7 +223,6 @@
 				populateUI(cfg);
 			},
 			() => {
-				// Fallback to defaults if backend fails
 				if (!backendConnected) {
 					populateUI({});
 				}
@@ -236,26 +234,19 @@
 		const divider = $("divider");
 		const settings = $("settingsPane");
 		const log = $("logPane");
-		
+
 		if (!divider || !settings || !log) return;
 
-		let isDragging = false;
-		let startY;
-		let startSettingsHeight;
-
-		// Начальная пропорция: 75% настройки, 25% логи
+		// Начальная пропорция: 3:1 (как в CSS)
 		settings.style.flex = "3";
 		log.style.flex = "1";
 
+		let isDragging = false;
+
 		divider.addEventListener("mousedown", function(e) {
 			isDragging = true;
-			startY = e.clientY;
-			startSettingsHeight = settings.offsetHeight;
-			
-			// Фиксируем ширину в пикселях перед началом драга, чтобы flex не прыгал
-			settings.style.flex = `0 0 ${startSettingsHeight}px`;
-			log.style.flex = "1"; // Остаток занимает лог
-			
+
+			// Блокируем выделение и скрываем курсор
 			document.body.style.cursor = "row-resize";
 			document.body.style.userSelect = "none";
 			e.preventDefault();
@@ -263,11 +254,33 @@
 
 		document.addEventListener("mousemove", function(e) {
 			if (!isDragging) return;
+
+			const container = document.getElementById("mainContainer");
+			const containerRect = container.getBoundingClientRect();
+
+			// Вычисляем позицию мыши относительно верха контейнера
+			const relativeY = e.clientY - containerRect.top;
+
+			// Вычисляем новую пропорцию (flex-grow) для верхнего блока
+			// Ограничиваем, чтобы не уходить в 0 или отрицательные значения
+			const minH = 100; // Минимальная высота в пикселях для UX
+			const maxH = containerRect.height - 100; // Минимальная высота для лога
+
+			let adjustedY = relativeY;
+			if (adjustedY < minH) adjustedY = minH;
+			if (adjustedY > maxH) adjustedY = maxH;
+
+			// Рассчитываем flex-grow
+			// Flex = высота_верхнего / высота_нижнего
+			const topH = adjustedY;
+			const bottomH = containerRect.height - topH;
 			
-			const delta = e.clientY - startY;
-			const newHeight = Math.max(150, startSettingsHeight + delta); // Минимум 150px
-			
-			settings.style.flex = `0 0 ${newHeight}px`;
+			// Предотвращаем деление на ноль
+			if (bottomH > 0) {
+				const flexRatio = topH / bottomH;
+				settings.style.flex = flexRatio;
+				log.style.flex = "1";
+			}
 		});
 
 		document.addEventListener("mouseup", function() {
@@ -275,8 +288,6 @@
 				isDragging = false;
 				document.body.style.cursor = "";
 				document.body.style.userSelect = "";
-				// При отпускании можно вернуть flex: 1 для лога, чтобы он тянулся, 
-				// но чтобы сохранить позицию, оставляем жесткую высоту для настроек
 			}
 		});
 	}
@@ -293,7 +304,7 @@
 				(res) => showStatus(res?.message || "Resync failed", "danger")
 			);
 		});
-		
+
 		$("addUrlBtn")?.addEventListener("click", () => {
 			const val = $("newUrl")?.value?.trim();
 			if (val && !checkUrls.includes(val)) {
@@ -302,7 +313,7 @@
 				if ($("newUrl")) $("newUrl").value = "";
 			}
 		});
-		
+
 		$("btnTest")?.addEventListener("click", () => {
 			addLog("→ test-proxy", "info");
 			const cfg = { ...collectGlobal(), check_urls: checkUrls };
@@ -315,14 +326,14 @@
 
 	// Init
 	cockpit.transport.wait(() => {
-		const lang = ["en","ru"].includes((cockpit.language||"en").split("-")[0]) ? (cockpit.language||"en").split("-")[0] : "en";
+		const lang = ["en", "ru"].includes((cockpit.language || "en").split("-")[0]) ? (cockpit.language || "en").split("-")[0] : "en";
 		loadTranslations(lang).then(() => {
 			initChannel();
 		});
-		
+
 		initSplitPane();
 		setupButtons();
-		
+
 		// Populate UI immediately with defaults (works even if backend fails)
 		populateUI({});
 		addLog("Proxy Manager initialized.", "info");
