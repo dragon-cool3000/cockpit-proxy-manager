@@ -8,12 +8,12 @@
 			"label": "Proxy Manager",
 			"path": "proxy.html",
 			"keywords": [
-				{"matches": ["proxy", "apt", "curl", "monitor", "network", "packagekit"]}
+				{ "matches": ["proxy", "apt", "curl", "monitor", "network", "packagekit"] }
 			]
 		}
 	},
 	"bridges": [{
-		"match": {"payload": "proxy-manager"},
+		"match": { "payload": "proxy-manager" },
 		"spawn": ["/usr/local/libexec/cockpit-proxy-manager"],
 		"privileged": true
 	}]
